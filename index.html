@@ -147,6 +147,12 @@ body{
 .streak-card .highest{font-size:.75rem;color:var(--text-dim);opacity:.7;margin-top:4px}
 .streak-card .highest span{color:var(--gold);font-weight:600}
 
+.sec-alert{background:rgba(240,192,96,.08);border:1px solid rgba(240,192,96,.25);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;display:none;align-items:center;gap:10px;font-size:.8rem;color:var(--gold)}
+.sec-alert.show{display:flex}
+.sec-alert .sec-btn{background:rgba(240,192,96,.15);border:1px solid rgba(240,192,96,.3);color:var(--gold);border-radius:8px;padding:6px 14px;font-size:.75rem;cursor:pointer;font-family:inherit;white-space:nowrap}
+.sec-alert .sec-btn:hover{background:rgba(240,192,96,.25)}
+.sec-setup-form{margin-top:8px;display:none}
+.sec-setup-form.show{display:block}
 .partner-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .partner-badge{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);backdrop-filter:blur(14px);padding:12px;text-align:center;font-size:.85rem;box-shadow:var(--shadow)}
 .partner-badge .p-name{font-weight:600;color:#e0d0d8;margin-bottom:2px}
@@ -367,6 +373,36 @@ body{
     <div class="highest">🏆 最高纪录 <span id="highestStreak">0</span> 天</div>
   </div>
 
+  <!-- Security question alert -->
+  <div class="sec-alert" id="secAlert">
+    <span>⚠️ 你还未设置密保问题，忘记密码将无法找回</span>
+    <button class="sec-btn" onclick="showSecSetup()">立即设置</button>
+  </div>
+  <div class="sec-setup-form" id="secSetupForm">
+    <div class="calendar-card" style="margin-bottom:14px;">
+      <div class="form-group">
+        <label>密保问题</label>
+        <select id="secQuestion">
+          <option value="">-- 选择 --</option>
+          <option value="你第一只宠物叫什么？">你第一只宠物叫什么？</option>
+          <option value="你的出生城市是？">你的出生城市是？</option>
+          <option value="你妈妈的名字是？">你妈妈的名字是？</option>
+          <option value="你最喜欢的食物是？">你最喜欢的食物是？</option>
+          <option value="custom">✏️ 自定义</option>
+        </select>
+      </div>
+      <div class="form-group" id="secCustomQGroup" style="display:none;">
+        <label>自定义问题</label>
+        <input type="text" id="secCustomQ" placeholder="输入你的问题" maxlength="50">
+      </div>
+      <div class="form-group">
+        <label>答案（牢记！）</label>
+        <input type="text" id="secAnswer" placeholder="输入密保答案">
+      </div>
+      <button class="btn btn-primary" onclick="saveSecurity()">💾 保存密保</button>
+    </div>
+  </div>
+
   <div class="partner-row" id="partnerRow"></div>
 
   <div class="action-row" id="actionRow">
@@ -538,7 +574,51 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('loginPassword').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
   document.getElementById('signupPassword').addEventListener('keydown', e => { if(e.key==='Enter') doSignup(); });
+
+  // Security question setup in dashboard
+  const secQ = document.getElementById('secQuestion');
+  if (secQ) secQ.addEventListener('change', function() {
+    document.getElementById('secCustomQGroup').style.display = this.value === 'custom' ? 'block' : 'none';
+  });
 });
+
+// ==================== SECURITY QUESTION SETUP (in-app) ====================
+function showSecSetup() {
+  const form = document.getElementById('secSetupForm');
+  form.classList.toggle('show');
+}
+
+async function saveSecurity() {
+  const q = document.getElementById('secQuestion').value;
+  const customQ = document.getElementById('secCustomQ').value.trim();
+  const question = q === 'custom' ? customQ : q;
+  const answer = document.getElementById('secAnswer').value.trim();
+
+  if (!question) { showToast('请选择或输入密保问题', true); return; }
+  if (!answer) { showToast('请输入密保答案', true); return; }
+
+  const { error } = await supabase.from('profiles').update({
+    security_question: question,
+    security_answer_hash: sha256(answer.toLowerCase().trim())
+  }).eq('id', currentUser.id);
+
+  if (error) { showToast('保存失败: ' + error.message, true); return; }
+
+  document.getElementById('secAlert').classList.remove('show');
+  document.getElementById('secSetupForm').classList.remove('show');
+  showToast('密保已设置 ✅');
+}
+
+async function checkSecurityQuestion() {
+  if (!currentUser) return;
+  const { data } = await supabase.from('profiles').select('security_question').eq('id', currentUser.id).maybeSingle();
+  if (data && data.security_question) {
+    document.getElementById('secAlert').classList.remove('show');
+    document.getElementById('secSetupForm').classList.remove('show');
+  } else {
+    document.getElementById('secAlert').classList.add('show');
+  }
+}
 
 // ==================== AUTH ACTIONS ====================
 async function doLogin() {
@@ -866,11 +946,11 @@ async function init(){
     currentUser=session.user;
     const {data:mp}=await supabase.from('profiles').select('*').eq('id',currentUser.id).maybeSingle();
     if(!mp){const meta=currentUser.user_metadata||{};await supabase.from('profiles').insert({id:currentUser.id,nickname:meta.nickname||currentUser.email.split('@')[0],email:currentUser.email});}
-    await loadAllData();showAppPage();renderAll();
+    await loadAllData();showAppPage();renderAll();checkSecurityQuestion();
   }else{showAuthPage();showLockout();}
 
   supabase.auth.onAuthStateChange(async(ev,sess)=>{
-    if(sess){currentUser=sess.user;await loadAllData();showAppPage();renderAll();}else{currentUser=null;showAuthPage();showLockout();}
+    if(sess){currentUser=sess.user;await loadAllData();showAppPage();renderAll();checkSecurityQuestion();}else{currentUser=null;showAuthPage();showLockout();}
   });
 
   setInterval(rotateQuote,8000);rotateQuote();
