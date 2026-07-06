@@ -200,6 +200,7 @@ body{
 .cal-grid .day-cell.partial{background:rgba(240,192,96,.12);color:var(--gold)}
 .cal-grid .day-cell .day-icon{font-size:.5rem;line-height:1}
 .cal-grid .day-cell .day-num{font-size:.68rem;line-height:1}
+.cal-grid .day-cell.anniversary{box-shadow:inset 0 0 0 1.5px rgba(255,215,0,.35)}
 .month-stats{display:flex;justify-content:space-around;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);font-size:.68rem;color:var(--text-dim)}
 .month-stats .stat{text-align:center}
 .month-stats .stat-val{font-size:1rem;font-weight:700}
@@ -1154,7 +1155,8 @@ function renderStreakAndActions(){
   if(combined==='angry'){card.classList.add('angry');num.textContent='😞';label.textContent='今天生气了，明天重新开始';}
   else{card.classList.remove('angry');num.textContent=streak;label.textContent='天没有生气了 ✨';num.classList.remove('pulse');void num.offsetWidth;if(streak>0)num.classList.add('pulse');}
   document.getElementById('highestStreak').textContent=highest;
-  document.getElementById('headerIcon').textContent=combined==='angry'?'💔':'💕';
+  const isAnniversary = new Date().getDate() === 9;
+  document.getElementById('headerIcon').textContent = combined==='angry' ? '💔' : isAnniversary ? '💍' : '💕';
   const ar=document.getElementById('actionRow'),dm=document.getElementById('doneMsg');
   if(my){ar.style.display='none';dm.style.display='flex';dm.innerHTML=`<button class="action-btn btn-happy done" style="flex:1;cursor:default;">${my.mood==='happy'?'💕 今天已打卡：和睦':'😤 今天已记录：生气了'}</button>`;}
   else if(combined==='happy'){ar.style.display='none';dm.style.display='flex';dm.innerHTML='<button class="action-btn btn-happy done" style="flex:1;cursor:default;">💕 今天两人都和睦！</button>';}
@@ -1170,8 +1172,12 @@ function renderCalendar(){
     else if(s==='angry'){cell.classList.add('angry');cell.innerHTML=`<span class="day-num">${d}</span><span class="day-icon">💔</span>`;}
     else if(s==='partial'){cell.classList.add('partial');cell.innerHTML=`<span class="day-num">${d}</span><span class="day-icon">◐</span>`;}
     else cell.innerHTML=`<span class="day-num">${d}</span>`;
-    if(ds===today)cell.classList.add('today');cell.title=ds+' - 点击编辑';cell.addEventListener('click',()=>openModal(ds));grid.appendChild(cell);}
+    // 每月9号纪念日
+    if(d===9){cell.classList.add('anniversary');cell.innerHTML+=`<span class="day-icon">💍</span>`;}
+    if(ds===today)cell.classList.add('today');cell.title=ds+(d===9?' 💍纪念日':'')+' - 点击编辑';cell.addEventListener('click',()=>openModal(ds));grid.appendChild(cell);}
   document.getElementById('calTitle').textContent=`📅 ${y}年${m+1}月`;
+  // 纪念日特殊标题
+  if(new Date().getDate()===9){document.getElementById('calTitle').textContent=`💍 ${y}年${m+1}月 · 纪念日快乐！`;}
   let hap=0,ang=0;
   for(let d=1;d<=dim;d++){const s=getCombinedStatus(fmtDate(y,m,d));if(s==='happy')hap++;else if(s==='angry')ang++;}
   const total=hap+ang,passed=Math.min(dim,new Date().getDate()),remain=Math.max(0,passed-total);
