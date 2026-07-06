@@ -3,538 +3,513 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💕 不生气打卡 - 我们的约定</title>
+<title>💕 不生气打卡</title>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
-  /* ===== Reset & Base ===== */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ================================================================
+   CSS Variables & Reset
+   ================================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --pink: #ff6b9d;
-    --pink-light: #ffb3cc;
-    --rose: #e8536c;
-    --peach: #ffa07a;
-    --gold: #f0c060;
-    --red: #ff4757;
-    --red-dark: #c0392b;
-    --bg-start: #1a0a14;
-    --bg-mid: #2d1b2e;
-    --bg-end: #0f1626;
-    --card-bg: rgba(255, 255, 255, 0.06);
-    --card-border: rgba(255, 255, 255, 0.10);
-    --text: #f0e0e8;
-    --text-dim: #b8a0b0;
-    --shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-    --radius: 18px;
-  }
+:root {
+  --pink: #ff6b9d; --pink-light: #ffb3cc; --rose: #e8536c;
+  --peach: #ffa07a; --gold: #f0c060; --red: #ff4757;
+  --bg-start: #1a0a14; --bg-mid: #2d1b2e; --bg-end: #0f1626;
+  --card-bg: rgba(255,255,255,0.06); --card-border: rgba(255,255,255,0.10);
+  --text: #f0e0e8; --text-dim: #b8a0b0;
+  --shadow: 0 8px 32px rgba(0,0,0,0.25);
+  --radius: 18px; --radius-sm: 12px;
+}
 
-  body {
-    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    min-height: 100vh;
-    background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 40%, var(--bg-end) 100%);
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow-x: hidden;
-  }
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 40%, var(--bg-end) 100%);
+  color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  overflow-x: hidden;
+}
 
-  /* ===== Floating Hearts Background ===== */
-  .hearts-bg {
-    position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
-  }
-  .floating-heart {
-    position: absolute;
-    animation: floatUp linear infinite;
-    opacity: 0;
-    font-size: 1.4rem;
-  }
-  @keyframes floatUp {
-    0%   { transform: translateY(105vh) scale(0.3) rotate(0deg); opacity: 0; }
-    10%  { opacity: 0.35; }
-    90%  { opacity: 0.15; }
-    100% { transform: translateY(-10vh) scale(1.1) rotate(25deg); opacity: 0; }
-  }
+/* ================================================================
+   Floating Hearts Background
+   ================================================================ */
+.hearts-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.floating-heart {
+  position: absolute; animation: floatUp linear infinite; opacity: 0; font-size: 1.4rem;
+}
+@keyframes floatUp {
+  0%   { transform: translateY(105vh) scale(0.3) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.35; } 90%  { opacity: 0.15; }
+  100% { transform: translateY(-10vh) scale(1.1) rotate(25deg); opacity: 0; }
+}
 
-  /* ===== Main Container ===== */
-  .app {
-    position: relative; z-index: 1;
-    width: min(500px, 94vw);
-    padding: 28px 22px 20px;
-  }
+/* ================================================================
+   Toast
+   ================================================================ */
+.toast {
+  position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+  background: rgba(30,10,20,0.95); color: #fff;
+  padding: 12px 26px; border-radius: 50px;
+  font-weight: 600; font-size: 0.88rem;
+  z-index: 300; pointer-events: none;
+  opacity: 0; transition: opacity 0.4s, transform 0.4s;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(4px); }
+.toast.err { background: rgba(180,40,40,0.95); border-color: rgba(255,71,87,0.4); }
 
-  /* ===== Header ===== */
-  .header {
-    text-align: center; margin-bottom: 24px;
-  }
-  .header .icon-row {
-    font-size: 2.2rem; margin-bottom: 4px;
-    animation: gentleBounce 2s ease-in-out infinite;
-  }
-  @keyframes gentleBounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-6px); }
-  }
-  .header h1 {
-    font-size: 1.7rem; font-weight: 700;
-    background: linear-gradient(135deg, var(--pink-light), var(--pink), var(--peach));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 2px;
-    letter-spacing: 1px;
-  }
-  .header .subtitle {
-    font-size: 0.85rem; color: var(--text-dim);
-  }
+/* ================================================================
+   Celebration Overlay
+   ================================================================ */
+.celebrate-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 200; }
+.confetti {
+  position: absolute;
+  animation: confettiFall linear forwards;
+}
+@keyframes confettiFall {
+  0%   { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
+  80%  { opacity: 0.8; }
+  100% { transform: translateY(110vh) rotate(720deg) scale(0.3); opacity: 0; }
+}
 
-  /* ===== Streak Card ===== */
-  .streak-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius);
-    backdrop-filter: blur(14px);
-    padding: 20px 18px;
-    text-align: center;
-    margin-bottom: 16px;
-    box-shadow: var(--shadow);
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.4s;
-  }
-  .streak-card.angry-today {
-    border-color: rgba(255, 71, 87, 0.4);
-  }
-  .streak-card .streak-number {
-    font-size: 4.2rem; font-weight: 800;
-    background: linear-gradient(180deg, #fff 20%, var(--pink-light) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1;
-    transition: all 0.3s;
-  }
-  .streak-card.angry-today .streak-number {
-    background: linear-gradient(180deg, #ff6b6b 20%, var(--red) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-size: 2rem;
-  }
-  .streak-card .streak-number.pulse {
-    animation: popIn 0.6s cubic-bezier(0.68, -0.6, 0.32, 1.6);
-  }
-  @keyframes popIn {
-    0% { transform: scale(0.5); opacity: 0; }
-    50% { transform: scale(1.25); }
-    100% { transform: scale(1); opacity: 1; }
-  }
-  .streak-card .streak-label {
-    font-size: 0.95rem; color: var(--text-dim);
-    margin-top: 2px;
-    transition: color 0.4s;
-  }
-  .streak-card.angry-today .streak-label {
-    color: #ff6b6b;
-  }
-  .streak-card .highest {
-    font-size: 0.78rem; color: var(--text-dim); opacity: 0.7;
-    margin-top: 4px;
-  }
-  .streak-card .highest span { color: var(--gold); font-weight: 600; }
+/* ================================================================
+   Auth Page
+   ================================================================ */
+.auth-container {
+  position: relative; z-index: 1;
+  width: min(400px, 92vw);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(14px);
+  padding: 32px 24px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.auth-container .auth-icon { font-size: 2.4rem; margin-bottom: 8px; }
+.auth-container h2 {
+  font-size: 1.5rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--pink-light), var(--pink), var(--peach));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 20px;
+}
+.auth-container .form-group { margin-bottom: 14px; text-align: left; }
+.auth-container label {
+  display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;
+}
+.auth-container input {
+  width: 100%; padding: 11px 14px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: var(--text);
+  font-size: 0.9rem; font-family: inherit;
+  outline: none; transition: border-color 0.3s;
+}
+.auth-container input:focus { border-color: var(--pink); }
+.auth-container .btn {
+  width: 100%; padding: 12px; border-radius: 10px;
+  border: none; font-size: 0.95rem; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  transition: all 0.3s;
+  margin-top: 6px;
+}
+.auth-container .btn-primary {
+  background: linear-gradient(135deg, var(--pink), var(--rose));
+  color: #fff;
+}
+.auth-container .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.auth-container .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.auth-container .auth-switch {
+  margin-top: 16px; font-size: 0.82rem; color: var(--text-dim);
+}
+.auth-container .auth-switch a {
+  color: var(--pink-light); cursor: pointer; text-decoration: underline;
+}
+.auth-error { color: #ff8088; font-size: 0.8rem; margin-top: 8px; display: none; }
 
-  /* ===== Two-people Check-in ===== */
-  .checkin-section {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-  .checkin-card {
-    background: var(--card-bg);
-    border: 1.5px solid var(--card-border);
-    border-radius: var(--radius);
-    backdrop-filter: blur(14px);
-    padding: 16px 12px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--shadow);
-    position: relative;
-    overflow: hidden;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-  }
-  .checkin-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(255, 255, 255, 0.22);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
-  }
-  .checkin-card:active {
-    transform: scale(0.96);
-    transition: transform 0.1s;
-  }
+/* ================================================================
+   Main App Container
+   ================================================================ */
+.app {
+  position: relative; z-index: 1;
+  width: min(500px, 94vw);
+  padding: 28px 22px 20px;
+  display: none;
+}
+.app.active { display: block; }
 
-  .checkin-card.checked {
-    border-color: rgba(240, 192, 96, 0.5) !important;
-    background: rgba(240, 192, 96, 0.08) !important;
-  }
-  .checkin-card.done {
-    border-color: rgba(255, 107, 157, 0.5) !important;
-    background: rgba(255, 107, 157, 0.06) !important;
-    cursor: default;
-    pointer-events: none;
-  }
-  .checkin-card.today-done {
-    cursor: default;
-    pointer-events: none;
-    opacity: 0.55;
-  }
+/* Header */
+.header { text-align: center; margin-bottom: 20px; }
+.header .icon-row {
+  font-size: 2.2rem; margin-bottom: 4px;
+  animation: gentleBounce 2s ease-in-out infinite;
+}
+@keyframes gentleBounce {
+  0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); }
+}
+.header h1 {
+  font-size: 1.7rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--pink-light), var(--pink), var(--peach));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; letter-spacing: 1px;
+}
+.header .user-bar {
+  display: flex; justify-content: center; align-items: center;
+  gap: 10px; margin-top: 6px; font-size: 0.8rem; color: var(--text-dim);
+}
+.header .user-bar .logout-link {
+  color: var(--text-dim); opacity: 0.5; cursor: pointer; text-decoration: underline;
+  font-size: 0.72rem;
+}
+.header .user-bar .logout-link:hover { opacity: 0.8; }
 
-  .checkin-card .avatar {
-    width: 50px; height: 50px; border-radius: 50%;
-    margin: 0 auto 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.8rem;
-    background: rgba(255, 255, 255, 0.07);
-    transition: all 0.35s;
-  }
-  .checkin-card.checked .avatar {
-    background: rgba(240, 192, 96, 0.18);
-    box-shadow: 0 0 22px rgba(240, 192, 96, 0.25);
-  }
-  .checkin-card.done .avatar {
-    background: rgba(255, 107, 157, 0.15);
-    box-shadow: 0 0 18px rgba(255, 107, 157, 0.2);
-  }
-  .checkin-card .name {
-    font-size: 0.95rem; font-weight: 600;
-    color: #e0d0d8;
-    margin-bottom: 3px;
-    cursor: text;
-    padding: 2px 8px; border-radius: 6px;
-    outline: none;
-    transition: background 0.2s;
-    max-width: 120px;
-    margin-left: auto; margin-right: auto;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .checkin-card .name:hover {
-    background: rgba(255,255,255,0.05);
-  }
-  .checkin-card .name:focus {
-    background: rgba(255,255,255,0.10);
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
-  }
-  .checkin-card .status {
-    font-size: 0.75rem; color: var(--text-dim);
-    transition: color 0.35s;
-  }
-  .checkin-card.checked .status { color: var(--gold); }
-  .checkin-card.done .status { color: var(--pink-light); }
-  .checkin-card .check-mark {
-    position: absolute;
-    top: 8px; right: 12px;
-    font-size: 1rem;
-    opacity: 0;
-    transform: scale(0);
-    transition: all 0.35s cubic-bezier(0.68, -0.6, 0.32, 1.6);
-  }
-  .checkin-card.checked .check-mark,
-  .checkin-card.done .check-mark {
-    opacity: 1;
-    transform: scale(1);
-  }
+/* Streak Card */
+.streak-card {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius); backdrop-filter: blur(14px);
+  padding: 18px 16px; text-align: center; margin-bottom: 14px;
+  box-shadow: var(--shadow); transition: border-color 0.4s;
+}
+.streak-card.angry { border-color: rgba(255,71,87,0.4); }
+.streak-card .streak-number {
+  font-size: 4rem; font-weight: 800;
+  background: linear-gradient(180deg, #fff 20%, var(--pink-light) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; line-height: 1;
+}
+.streak-card.angry .streak-number {
+  background: linear-gradient(180deg, #ff6b6b 20%, var(--red) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; font-size: 1.8rem;
+}
+.streak-card .streak-number.pulse {
+  animation: popIn 0.6s cubic-bezier(0.68,-0.6,0.32,1.6);
+}
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.streak-card .streak-label {
+  font-size: 0.9rem; color: var(--text-dim); margin-top: 2px; transition: color 0.4s;
+}
+.streak-card.angry .streak-label { color: #ff6b6b; }
+.streak-card .highest {
+  font-size: 0.75rem; color: var(--text-dim); opacity: 0.7; margin-top: 4px;
+}
+.streak-card .highest span { color: var(--gold); font-weight: 600; }
 
-  /* Ripple */
-  .checkin-card .ripple {
-    position: absolute; border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
-    transform: scale(0); animation: rippleOut 0.7s ease-out forwards;
-    pointer-events: none;
-  }
-  @keyframes rippleOut {
-    to { transform: scale(4); opacity: 0; }
-  }
+/* Partner status */
+.partner-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+}
+.partner-badge {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm); backdrop-filter: blur(14px);
+  padding: 12px; text-align: center; font-size: 0.85rem;
+  box-shadow: var(--shadow);
+}
+.partner-badge .p-name { font-weight: 600; color: #e0d0d8; margin-bottom: 2px; }
+.partner-badge .p-status { font-size: 0.72rem; color: var(--text-dim); }
+.partner-badge .p-status.done { color: var(--gold); }
+.partner-badge.you { border-color: rgba(255,107,157,0.3); }
 
-  /* ===== Angry Button ===== */
-  .angry-section {
-    margin-bottom: 16px;
-  }
-  .angry-btn {
-    width: 100%;
-    padding: 13px;
-    border-radius: var(--radius);
-    border: 1.5px solid rgba(255, 71, 87, 0.3);
-    background: rgba(255, 71, 87, 0.06);
-    color: #e0a0a8;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    backdrop-filter: blur(14px);
-    transition: all 0.35s;
-    font-family: inherit;
-    letter-spacing: 1px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-  .angry-btn:hover {
-    background: rgba(255, 71, 87, 0.14);
-    border-color: rgba(255, 71, 87, 0.55);
-    color: #ffa0aa;
-    box-shadow: 0 8px 28px rgba(255, 71, 87, 0.15);
-  }
-  .angry-btn:active {
-    transform: scale(0.97);
-    transition: transform 0.1s;
-  }
-  .angry-btn.today-done {
-    opacity: 0.4;
-    pointer-events: none;
-    cursor: default;
-  }
-  .angry-btn .angry-emoji {
-    font-size: 1.2rem;
-  }
+/* Checkin Buttons */
+.action-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.action-btn {
+  flex: 1; padding: 14px 10px; border-radius: var(--radius);
+  border: 1.5px solid var(--card-border);
+  font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: all 0.35s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn-happy {
+  background: rgba(255,107,157,0.08); color: var(--pink-light);
+  border-color: rgba(255,107,157,0.3);
+}
+.btn-happy:hover {
+  background: rgba(255,107,157,0.18); border-color: rgba(255,107,157,0.55);
+  box-shadow: 0 8px 28px rgba(255,107,157,0.2);
+}
+.btn-happy:disabled {
+  opacity: 0.35; cursor: not-allowed; pointer-events: none;
+}
+.btn-happy.done {
+  background: rgba(255,107,157,0.15); border-color: rgba(255,107,157,0.5);
+  cursor: default;
+}
+.btn-angry {
+  background: rgba(255,71,87,0.05); color: #e0a0a8;
+  border-color: rgba(255,71,87,0.25);
+  flex: 0.6;
+}
+.btn-angry:hover {
+  background: rgba(255,71,87,0.15); border-color: rgba(255,71,87,0.5);
+  color: #ffa0aa;
+}
+.btn-angry:disabled {
+  opacity: 0.35; cursor: not-allowed; pointer-events: none;
+}
 
-  /* ===== Celebration effect ===== */
-  .celebrate-overlay {
-    position: fixed; inset: 0; pointer-events: none; z-index: 100;
-  }
-  .confetti {
-    position: absolute;
-    animation: confettiFall linear forwards;
-  }
-  @keyframes confettiFall {
-    0%   { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
-    80%  { opacity: 0.8; }
-    100% { transform: translateY(110vh) rotate(720deg) scale(0.3); opacity: 0; }
-  }
+/* Loading spinner */
+.spinner {
+  display: inline-block; width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ===== Monthly Calendar ===== */
-  .calendar-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius);
-    backdrop-filter: blur(14px);
-    padding: 16px 14px 12px;
-    margin-bottom: 16px;
-    box-shadow: var(--shadow);
-  }
-  .calendar-card .cal-header {
-    display: flex; justify-content: space-between;
-    align-items: center; margin-bottom: 12px;
-  }
-  .calendar-card .cal-title {
-    font-size: 0.9rem; font-weight: 600;
-    color: #d0c0d0;
-  }
-  .calendar-card .cal-legend {
-    display: flex; gap: 12px;
-    font-size: 0.65rem; color: var(--text-dim); opacity: 0.6;
-    align-items: center;
-  }
-  .calendar-card .cal-legend span {
-    display: flex; align-items: center; gap: 3px;
-  }
-  .legend-dot {
-    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-  }
-  .legend-dot.happy { background: var(--pink); }
-  .legend-dot.angry { background: var(--red); }
-  .legend-dot.partial { background: var(--gold); }
+/* ================================================================
+   Monthly Calendar
+   ================================================================ */
+.calendar-card {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius); backdrop-filter: blur(14px);
+  padding: 14px 12px 10px; margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.calendar-card .cal-header {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 10px;
+}
+.calendar-card .cal-title { font-size: 0.85rem; font-weight: 600; color: #d0c0d0; }
+.calendar-card .cal-nav { display: flex; gap: 4px; }
+.calendar-card .cal-nav button {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-dim); border-radius: 6px; padding: 4px 10px;
+  font-size: 0.75rem; cursor: pointer; font-family: inherit;
+  transition: all 0.2s;
+}
+.calendar-card .cal-nav button:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.calendar-card .cal-nav button.active { background: rgba(255,107,157,0.2); color: var(--pink-light); }
+.cal-legend {
+  display: flex; gap: 12px; font-size: 0.6rem; color: var(--text-dim); opacity: 0.6;
+  align-items: center; margin-bottom: 8px;
+}
+.cal-legend span { display: flex; align-items: center; gap: 3px; }
+.legend-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
+.legend-dot.happy { background: var(--pink); }
+.legend-dot.angry { background: var(--red); }
+.legend-dot.partial { background: var(--gold); }
 
-  .cal-weekdays {
-    display: grid; grid-template-columns: repeat(7, 1fr);
-    text-align: center; margin-bottom: 4px;
-  }
-  .cal-weekdays span {
-    font-size: 0.65rem; color: var(--text-dim); opacity: 0.5;
-    padding: 4px 0;
-  }
-  .cal-weekdays span:first-child,
-  .cal-weekdays span:last-child {
-    color: rgba(255, 107, 157, 0.5);
-  }
+.cal-weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  text-align: center; margin-bottom: 2px;
+}
+.cal-weekdays span {
+  font-size: 0.62rem; color: var(--text-dim); opacity: 0.45; padding: 3px 0;
+}
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal-grid .day-cell {
+  aspect-ratio: 1; border-radius: 7px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 0.7rem; color: #c0b0c0;
+  transition: all 0.2s; cursor: pointer; position: relative; gap: 0px;
+  min-height: 34px;
+}
+.cal-grid .day-cell:hover { background: rgba(255,255,255,0.06); }
+.cal-grid .day-cell.empty { pointer-events: none; }
+.cal-grid .day-cell.today {
+  outline: 2px solid rgba(255,255,255,0.3); outline-offset: 1px;
+  font-weight: 700; color: #fff;
+}
+.cal-grid .day-cell.happy { background: rgba(255,107,157,0.2); color: var(--pink-light); }
+.cal-grid .day-cell.angry { background: rgba(255,71,87,0.2); color: #ff8088; }
+.cal-grid .day-cell.partial { background: rgba(240,192,96,0.12); color: var(--gold); }
+.cal-grid .day-cell .day-icon { font-size: 0.5rem; line-height: 1; }
+.cal-grid .day-cell .day-num { font-size: 0.68rem; line-height: 1; }
 
-  .cal-grid {
-    display: grid; grid-template-columns: repeat(7, 1fr);
-    gap: 3px; text-align: center;
-  }
-  .cal-grid .day-cell {
-    aspect-ratio: 1;
-    border-radius: 8px;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    font-size: 0.72rem;
-    color: #c0b0c0;
-    transition: all 0.25s;
-    cursor: default;
-    position: relative;
-    gap: 1px;
-  }
-  .cal-grid .day-cell.empty {
-    pointer-events: none;
-  }
-  .cal-grid .day-cell.today {
-    outline: 2px solid rgba(255, 255, 255, 0.3);
-    outline-offset: 1px;
-    font-weight: 700;
-    color: #fff;
-  }
-  .cal-grid .day-cell.happy {
-    background: rgba(255, 107, 157, 0.2);
-    color: var(--pink-light);
-  }
-  .cal-grid .day-cell.happy .day-icon { font-size: 0.55rem; }
-  .cal-grid .day-cell.angry {
-    background: rgba(255, 71, 87, 0.2);
-    color: #ff8088;
-  }
-  .cal-grid .day-cell.angry .day-icon { font-size: 0.55rem; }
-  .cal-grid .day-cell.partial {
-    background: rgba(240, 192, 96, 0.15);
-    color: var(--gold);
-  }
-  .cal-grid .day-cell .day-num {
-    font-size: 0.7rem; line-height: 1;
-  }
+.month-stats {
+  display: flex; justify-content: space-around;
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  font-size: 0.68rem; color: var(--text-dim);
+}
+.month-stats .stat { text-align: center; }
+.month-stats .stat-val { font-size: 1rem; font-weight: 700; }
+.month-stats .stat-val.good { color: var(--pink-light); }
+.month-stats .stat-val.bad { color: #ff8088; }
 
-  /* ===== Monthly Stats ===== */
-  .month-stats {
-    display: flex; justify-content: space-around;
-    margin-top: 10px; padding-top: 10px;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    font-size: 0.72rem; color: var(--text-dim);
-  }
-  .month-stats .stat {
-    text-align: center;
-  }
-  .month-stats .stat-val {
-    font-size: 1.1rem; font-weight: 700;
-  }
-  .month-stats .stat-val.good { color: var(--pink-light); }
-  .month-stats .stat-val.bad { color: #ff8088; }
+/* ================================================================
+   Edit Modal
+   ================================================================ */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 250; display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.2s;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: #1e1018; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius); padding: 22px 20px;
+  width: min(400px, 90vw); max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: scaleIn 0.25s cubic-bezier(0.68,-0.6,0.32,1.6);
+}
+@keyframes scaleIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal h3 {
+  text-align: center; font-size: 1rem; color: #d0c0d0; margin-bottom: 14px;
+}
+.modal .field { margin-bottom: 12px; }
+.modal .field label {
+  display: block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px;
+}
+.modal .field textarea {
+  width: 100%; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: var(--text);
+  font-size: 0.85rem; font-family: inherit; resize: vertical; min-height: 60px;
+  outline: none;
+}
+.modal .field textarea:focus { border-color: var(--pink); }
+.modal .mood-toggle { display: flex; gap: 8px; }
+.modal .mood-toggle button {
+  flex: 1; padding: 8px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04); color: var(--text-dim);
+  font-size: 0.82rem; cursor: pointer; font-family: inherit;
+  transition: all 0.2s;
+}
+.modal .mood-toggle button.sel-happy {
+  background: rgba(255,107,157,0.2); border-color: rgba(255,107,157,0.4); color: var(--pink-light);
+}
+.modal .mood-toggle button.sel-angry {
+  background: rgba(255,71,87,0.2); border-color: rgba(255,71,87,0.4); color: #ff8088;
+}
+.modal .img-preview {
+  width: 100%; max-height: 180px; object-fit: cover; border-radius: 8px;
+  margin-top: 6px; display: none;
+}
+.modal .img-actions { display: flex; gap: 8px; margin-top: 6px; }
+.modal .img-actions button {
+  flex: 1; padding: 8px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04); color: var(--text-dim);
+  font-size: 0.78rem; cursor: pointer; font-family: inherit;
+}
+.modal .img-actions .btn-del-img { color: #ff8088; border-color: rgba(255,71,87,0.3); }
+.modal .partner-section {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  font-size: 0.75rem; color: var(--text-dim);
+}
+.modal .partner-section .partner-note {
+  margin-top: 4px; padding: 8px 10px; background: rgba(255,255,255,0.03);
+  border-radius: 6px; font-size: 0.72rem; color: var(--text-dim);
+  max-height: 80px; overflow-y: auto; white-space: pre-wrap;
+}
+.modal .partner-section img {
+  max-width: 100%; max-height: 120px; border-radius: 6px; margin-top: 4px;
+}
+.modal .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+.modal .modal-actions button {
+  flex: 1; padding: 10px; border-radius: 10px;
+  font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: all 0.2s; border: 1px solid rgba(255,255,255,0.12);
+}
+.modal .btn-save {
+  background: linear-gradient(135deg, var(--pink), var(--rose)); color: #fff; border: none;
+}
+.modal .btn-save:hover { opacity: 0.9; }
+.modal .btn-close { background: transparent; color: var(--text-dim); }
+.modal .btn-delete { background: transparent; color: #ff8088; border-color: rgba(255,71,87,0.3); }
+.upload-hint { font-size: 0.7rem; color: var(--text-dim); opacity: 0.5; margin-top: 4px; }
 
-  /* ===== Quote ===== */
-  .quote {
-    text-align: center; font-size: 0.82rem;
-    color: var(--text-dim); opacity: 0.7;
-    font-style: italic;
-    transition: opacity 0.5s;
-  }
+/* ================================================================
+   Quote & Reset
+   ================================================================ */
+.quote {
+  text-align: center; font-size: 0.8rem; color: var(--text-dim);
+  opacity: 0.65; font-style: italic; transition: opacity 0.5s;
+}
+.footer-links {
+  text-align: center; margin-top: 12px;
+  font-size: 0.68rem; color: var(--text-dim); opacity: 0.3;
+}
+.footer-links a { color: inherit; cursor: pointer; text-decoration: underline; }
 
-  /* ===== Reset ===== */
-  .reset-hint {
-    text-align: center; margin-top: 16px;
-    font-size: 0.7rem; color: var(--text-dim); opacity: 0.3;
-    cursor: pointer; transition: opacity 0.3s;
-  }
-  .reset-hint:hover { opacity: 0.6; }
-
-  /* ===== Toast ===== */
-  .toast {
-    position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
-    background: rgba(30, 10, 20, 0.95); color: #fff;
-    padding: 12px 26px; border-radius: 50px;
-    font-weight: 600; font-size: 0.88rem;
-    z-index: 200; pointer-events: none;
-    opacity: 0; transition: opacity 0.4s, transform 0.4s;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255,255,255,0.1);
-  }
-  .toast.show {
-    opacity: 1; transform: translateX(-50%) translateY(4px);
-  }
-  .toast.angry-toast {
-    background: rgba(180, 40, 40, 0.95);
-    border-color: rgba(255, 71, 87, 0.4);
-  }
-
-  /* ===== Modal (for angry confirm) ===== */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-    z-index: 150; display: flex; align-items: center; justify-content: center;
-    animation: fadeIn 0.2s;
-  }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  .modal {
-    background: #1e1018;
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: var(--radius);
-    padding: 24px 22px;
-    text-align: center;
-    width: min(340px, 88vw);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    animation: scaleIn 0.25s cubic-bezier(0.68, -0.6, 0.32, 1.6);
-  }
-  @keyframes scaleIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .modal .modal-emoji { font-size: 3rem; margin-bottom: 10px; }
-  .modal p { font-size: 0.9rem; color: var(--text-dim); margin-bottom: 18px; line-height: 1.5; }
-  .modal .modal-btns { display: flex; gap: 10px; }
-  .modal .modal-btns button {
-    flex: 1; padding: 10px; border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.15);
-    font-size: 0.85rem; font-weight: 600;
-    cursor: pointer; font-family: inherit;
-    transition: all 0.2s;
-  }
-  .modal .btn-cancel {
-    background: transparent; color: var(--text-dim);
-  }
-  .modal .btn-cancel:hover { background: rgba(255,255,255,0.05); }
-  .modal .btn-confirm {
-    background: rgba(255, 71, 87, 0.15);
-    color: #ff8088;
-    border-color: rgba(255, 71, 87, 0.35);
-  }
-  .modal .btn-confirm:hover {
-    background: rgba(255, 71, 87, 0.25);
-  }
-
-  /* ===== Responsive ===== */
-  @media (max-width: 400px) {
-    .app { padding: 18px 12px 14px; }
-    .streak-card .streak-number { font-size: 3.5rem; }
-    .streak-card.angry-today .streak-number { font-size: 1.8rem; }
-    .checkin-section { gap: 8px; }
-    .checkin-card { padding: 12px 8px; }
-    .checkin-card .avatar { width: 40px; height: 40px; font-size: 1.4rem; }
-    .cal-grid .day-cell { border-radius: 6px; font-size: 0.65rem; }
-  }
+/* ================================================================
+   Responsive
+   ================================================================ */
+@media (max-width: 400px) {
+  .app { padding: 16px 10px 12px; }
+  .streak-card .streak-number { font-size: 3.2rem; }
+  .streak-card.angry .streak-number { font-size: 1.6rem; }
+  .action-row { flex-direction: column; }
+  .btn-angry { flex: 1; }
+  .partner-row { gap: 6px; }
+  .cal-grid .day-cell { border-radius: 5px; font-size: 0.62rem; min-height: 28px; }
+}
 </style>
 </head>
 <body>
 
-<!-- Floating hearts background -->
+<!-- ================================================================
+     Floating Hearts Background
+     ================================================================ -->
 <div class="hearts-bg" id="heartsBg"></div>
 
-<!-- Toast -->
+<!-- ================================================================
+     Toast
+     ================================================================ -->
 <div class="toast" id="toast"></div>
 
-<!-- Celebrate overlay -->
+<!-- ================================================================
+     Celebration Overlay
+     ================================================================ -->
 <div class="celebrate-overlay" id="celebrateOverlay"></div>
 
-<!-- Angry confirm modal -->
-<div class="modal-overlay" id="angryModal" style="display:none;">
-  <div class="modal">
-    <div class="modal-emoji">😢</div>
-    <p>确认记录今天<strong style="color:#ff8088;">生气了</strong>吗？<br>连续不生气天数将会<strong style="color:#ff8088;">归零</strong>。</p>
-    <div class="modal-btns">
-      <button class="btn-cancel" onclick="closeAngryModal()">再想想</button>
-      <button class="btn-confirm" onclick="confirmAngry()">确认记录</button>
-    </div>
+<!-- ================================================================
+     AUTH PAGE
+     ================================================================ -->
+<div class="auth-container" id="authPage">
+  <div class="auth-icon">💕</div>
+  <h2 id="authTitle">不生气打卡</h2>
+  <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:18px;" id="authSub">登录你的账号</p>
+
+  <div class="form-group" id="nickField" style="display:none;">
+    <label>昵称</label>
+    <input type="text" id="authNick" placeholder="你的昵称" maxlength="20">
+  </div>
+  <div class="form-group">
+    <label>邮箱</label>
+    <input type="email" id="authEmail" placeholder="your@email.com">
+  </div>
+  <div class="form-group">
+    <label>密码</label>
+    <input type="password" id="authPassword" placeholder="至少 6 位密码">
+  </div>
+
+  <div class="auth-error" id="authError"></div>
+
+  <button class="btn btn-primary" id="authBtn" onclick="handleAuth()">
+    登 录
+  </button>
+
+  <div class="auth-switch">
+    <span id="switchText">还没有账号？</span>
+    <a id="switchLink" onclick="toggleAuthMode()">去注册</a>
   </div>
 </div>
 
-<!-- App -->
-<div class="app">
+<!-- ================================================================
+     MAIN APP
+     ================================================================ -->
+<div class="app" id="appPage">
 
   <!-- Header -->
   <div class="header">
     <div class="icon-row" id="headerIcon">💕</div>
     <h1>不生气打卡</h1>
-    <p class="subtitle" id="headerSub">我们的约定 · 用心守护每一天</p>
+    <div class="user-bar">
+      <span id="userNameDisplay">👤</span>
+      <span class="logout-link" onclick="handleLogout()">退出登录</span>
+    </div>
   </div>
 
   <!-- Streak -->
@@ -544,40 +519,36 @@
     <div class="highest">🏆 最高纪录 <span id="highestStreak">0</span> 天</div>
   </div>
 
-  <!-- Two-person Check-in (不生气) -->
-  <div class="checkin-section" id="checkinSection">
-    <div class="checkin-card" id="cardBoy" onclick="checkIn('boy', event)">
-      <div class="check-mark">✅</div>
-      <div class="avatar">🧑</div>
-      <div class="name" id="nameBoy" contenteditable="true"
-           onblur="saveName('boy', this)" onclick="event.stopPropagation()">我</div>
-      <div class="status" id="statusBoy">点击打卡</div>
-    </div>
-    <div class="checkin-card" id="cardGirl" onclick="checkIn('girl', event)">
-      <div class="check-mark">✅</div>
-      <div class="avatar">👩</div>
-      <div class="name" id="nameGirl" contenteditable="true"
-           onblur="saveName('girl', this)" onclick="event.stopPropagation()">女朋友</div>
-      <div class="status" id="statusGirl">点击打卡</div>
-    </div>
-  </div>
+  <!-- Partner Status -->
+  <div class="partner-row" id="partnerRow"></div>
 
-  <!-- Angry Button -->
-  <div class="angry-section">
-    <button class="angry-btn" id="angryBtn" onclick="openAngryModal()">
-      <span class="angry-emoji">😤</span> 今天生气了，记录一下
+  <!-- Actions (only if today not done) -->
+  <div class="action-row" id="actionRow">
+    <button class="action-btn btn-happy" id="btnHappy" onclick="doCheckin('happy')">
+      💕 今天和睦
+    </button>
+    <button class="action-btn btn-angry" id="btnAngry" onclick="doCheckin('angry')">
+      😤 生气了
     </button>
   </div>
 
-  <!-- Monthly Calendar -->
+  <!-- Action done message -->
+  <div class="action-row" id="doneMsg" style="display:none;"></div>
+
+  <!-- Calendar -->
   <div class="calendar-card">
     <div class="cal-header">
-      <span class="cal-title" id="calTitle">📅 本月记录</span>
-      <span class="cal-legend">
-        <span><i class="legend-dot happy"></i> 和睦</span>
-        <span><i class="legend-dot angry"></i> 生气</span>
-        <span><i class="legend-dot partial"></i> 待定</span>
-      </span>
+      <span class="cal-title" id="calTitle">📅 本月</span>
+      <div class="cal-nav">
+        <button id="navPrev" onclick="navMonth(-1)">◀</button>
+        <button id="navToday" class="active" onclick="navToday()">本月</button>
+        <button id="navNext" onclick="navMonth(1)">▶</button>
+      </div>
+    </div>
+    <div class="cal-legend">
+      <span><i class="legend-dot happy"></i> 和睦</span>
+      <span><i class="legend-dot angry"></i> 生气</span>
+      <span><i class="legend-dot partial"></i> 待定</span>
     </div>
     <div class="cal-weekdays">
       <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
@@ -588,485 +559,844 @@
 
   <!-- Quote -->
   <p class="quote" id="quote">爱是恒久忍耐，又有恩慈 💗</p>
-
-  <!-- Reset -->
-  <div class="reset-hint" onclick="resetAll()">长按重置记录</div>
-
+  <div class="footer-links">
+    <a onclick="if(confirm('确定删除账号及所有数据？此操作不可撤销！')) deleteAccount();">删除账号</a>
+  </div>
 </div>
 
+<!-- ================================================================
+     EDIT MODAL (hidden)
+     ================================================================ -->
+<div class="modal-overlay" id="editModal" style="display:none;" onclick="if(event.target===this)closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="modalTitle">编辑记录</h3>
+
+    <div class="field">
+      <label>当天状态</label>
+      <div class="mood-toggle">
+        <button id="moodHappy" onclick="setModalMood('happy')">💕 和睦</button>
+        <button id="moodAngry" onclick="setModalMood('angry')">😤 生气</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>文字记录</label>
+      <textarea id="modalNote" placeholder="写下想说的话..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>图片</label>
+      <input type="file" id="modalImageInput" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
+      <div class="img-actions">
+        <button onclick="document.getElementById('modalImageInput').click()">📷 上传图片</button>
+        <button class="btn-del-img" id="btnDelImg" onclick="deleteImage()" style="display:none;">🗑 删除图片</button>
+      </div>
+      <img class="img-preview" id="imgPreview" alt="预览">
+      <div class="upload-hint">支持 jpg/png/gif，最大 5MB</div>
+    </div>
+
+    <!-- Partner's record (read-only) -->
+    <div class="partner-section" id="partnerSection" style="display:none;"></div>
+
+    <div class="modal-actions">
+      <button class="btn-delete" id="btnDeleteRecord" onclick="deleteRecord()">删除记录</button>
+      <button class="btn-close" onclick="closeModal()">取消</button>
+      <button class="btn-save" id="btnSave" onclick="saveRecord()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     JAVASCRIPT
+     ================================================================ -->
 <script>
-// ==================== Data Model ====================
-const STORAGE_KEY = 'no_anger_checkin_v2';
+// ==================== 1. SUPABASE CONFIG ====================
+// !! 替换为你的 Supabase 项目信息（Project Settings → API）
+const SUPABASE_URL = 'https://xxxxx.supabase.co';
+const SUPABASE_ANON_KEY = 'your-anon-key-here';
 
-function loadData() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) {
-    try {
-      const d = JSON.parse(raw);
-      // Migrate old format
-      if (!d.todayDone) d.todayDone = false;
-      if (!d.nameBoy) d.nameBoy = '我';
-      if (!d.nameGirl) d.nameGirl = '女朋友';
-      // Normalize history: old format had string values
-      for (const [k, v] of Object.entries(d.history || {})) {
-        if (typeof v === 'string') {
-          d.history[k] = { type: v === 'angry' ? 'angry' : v === 'both' ? 'happy' : 'partial' };
-        }
-      }
-      return d;
-    } catch(e) {}
-  }
-  return {
-    streak: 0,
-    highestStreak: 0,
-    today: '',          // 'YYYY-MM-DD'
-    boyChecked: false,
-    girlChecked: false,
-    todayDone: false,   // true once today is fully resolved (happy or angry)
-    history: {},        // { 'YYYY-MM-DD': { type: 'happy' | 'angry' | 'partial' } }
-    nameBoy: '我',
-    nameGirl: '女朋友'
-  };
-}
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
+// ==================== 2. GLOBAL STATE ====================
+let currentUser = null;
+let allProfiles = {};        // { user_id: { nickname, email } }
+let allCheckins = [];        // [{id, user_id, date, mood, note, image_url, created_at}]
+let calYear, calMonth;
+let modalDate = '';
+let modalMood = 'happy';
+let modalImageFile = null;
+let modalExistingImageUrl = '';
 
-let data = loadData();
-
-// ==================== Helpers ====================
+// ==================== 3. HELPERS ====================
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function getMonthDays(year, month) {
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const startDayOfWeek = firstDay.getDay(); // 0=Sun
-  const daysInMonth = lastDay.getDate();
-  const cells = [];
-
-  // Empty cells before 1st
-  for (let i = 0; i < startDayOfWeek; i++) {
-    cells.push(null);
-  }
-  // Day cells
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push(`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
-  }
-  return cells;
+function fmtDate(y,m,d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
 
-// ==================== Render ====================
-function renderStreak() {
-  const el = document.getElementById('streakNumber');
-  const card = document.getElementById('streakCard');
-  const label = document.getElementById('streakLabel');
+function showToast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (isErr ? ' err' : '');
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function showLoading(el) { el.disabled = true; el._origHTML = el.innerHTML; el.innerHTML = '<span class="spinner"></span>'; }
+function hideLoading(el) { el.disabled = false; if (el._origHTML) el.innerHTML = el._origHTML; }
+
+async function fetchAllUsers() {
+  // Get all authenticated users' metadata via a workaround:
+  // We'll collect unique user_ids from checkins and also include current user
+  const ids = new Set(allCheckins.map(c => c.user_id));
+  ids.add(currentUser.id);
+  // Use Supabase admin-like approach: just track users we've seen
+  // For now, store minimal info from auth metadata
+  const seen = {};
+  for (const c of allCheckins) {
+    if (!seen[c.user_id]) {
+      seen[c.user_id] = { id: c.user_id, email: '伴侣', nickname: '伴侣' };
+    }
+  }
+  // Get current user info from session
+  if (currentUser) {
+    const meta = currentUser.user_metadata || {};
+    seen[currentUser.id] = {
+      id: currentUser.id,
+      email: currentUser.email,
+      nickname: meta.nickname || meta.full_name || currentUser.email.split('@')[0]
+    };
+  }
+  allUsers = Object.values(seen);
+}
+
+async function loadAllData() {
+  const { data, error } = await supabase
+    .from('checkins')
+    .select('*')
+    .order('date', { ascending: true });
+
+  if (error) { console.error('Load error:', error); return; }
+  allCheckins = data || [];
+
+  // Load all profiles
+  const { data: profiles } = await supabase.from('profiles').select('*');
+  if (profiles) {
+    allProfiles = {};
+    for (const p of profiles) {
+      allProfiles[p.id] = { nickname: p.nickname || '未知', email: p.email || '' };
+    }
+  }
+}
+
+function getUserNickname(uid) {
+  if (allProfiles[uid]) return allProfiles[uid].nickname;
+  if (uid === currentUser?.id) {
+    const meta = currentUser.user_metadata || {};
+    return meta.nickname || currentUser.email?.split('@')[0] || '我';
+  }
+  return '伴侣';
+}
+
+function getPartner() {
+  const ids = Object.keys(allProfiles);
+  const partnerId = ids.find(id => id !== currentUser?.id);
+  return partnerId ? { id: partnerId, ...allProfiles[partnerId] } : null;
+}
+
+// Checkin helpers
+function getUserCheckin(uid, date) {
+  return allCheckins.find(c => c.user_id === uid && c.date === date) || null;
+}
+
+function getMyCheckin(date) {
+  return getUserCheckin(currentUser.id, date);
+}
+
+function getCombinedStatus(date) {
+  // Returns 'happy' | 'angry' | 'partial' | 'none'
+  const me = getMyCheckin(date);
+  const partner = getPartner();
+  const them = partner ? getUserCheckin(partner.id, date) : null;
+
+  if (!me && !them) return 'none';
+  if (me && me.mood === 'angry') return 'angry';
+  if (them && them.mood === 'angry') return 'angry';
+  if (me && me.mood === 'happy' && them && them.mood === 'happy') return 'happy';
+  return 'partial';
+}
+
+function calcStreak() {
+  // Count consecutive 'happy' days backward from today
   const today = todayStr();
-  const todayRecord = data.history[today];
+  let streak = 0;
+  const d = new Date();
 
-  if (todayRecord && todayRecord.type === 'angry') {
-    card.classList.add('angry-today');
-    el.textContent = '😞';
-    el.classList.remove('pulse');
-    label.textContent = '今天生气了，明天重新开始吧';
-  } else {
-    card.classList.remove('angry-today');
-    el.textContent = data.streak;
-    label.textContent = '天没有生气了 ✨';
-    el.classList.remove('pulse');
-    void el.offsetWidth;
-    if (data.streak > 0) el.classList.add('pulse');
+  while (true) {
+    const ds = fmtDate(d.getFullYear(), d.getMonth(), d.getDate());
+    if (getCombinedStatus(ds) === 'happy') {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+function calcHighestStreak() {
+  // Scan all dates in checkins to find the longest consecutive happy run
+  const happyDates = new Set();
+  for (const c of allCheckins) {
+    if (c.mood === 'happy') {
+      // Check if partner also has happy on this date
+      const partner = getPartner();
+      if (partner) {
+        const pCheckin = allCheckins.find(x => x.user_id === partner.id && x.date === c.date && x.mood === 'happy');
+        if (pCheckin) happyDates.add(c.date);
+      }
+    }
+  }
+  const sorted = [...happyDates].sort();
+  if (sorted.length === 0) return 0;
+  let max = 0, cur = 0, prev = null;
+  for (const ds of sorted) {
+    if (!prev) { cur = 1; }
+    else {
+      const prevD = new Date(prev); prevD.setDate(prevD.getDate() + 1);
+      if (prevD.toISOString().slice(0,10) === ds) { cur++; }
+      else { cur = 1; }
+    }
+    if (cur > max) max = cur;
+    prev = ds;
+  }
+  return max;
+}
+
+// ==================== 4. AUTH ====================
+let isSignup = false;
+
+function toggleAuthMode() {
+  isSignup = !isSignup;
+  document.getElementById('authTitle').textContent = isSignup ? '注册账号' : '不生气打卡';
+  document.getElementById('authSub').textContent = isSignup ? '创建你的账号' : '登录你的账号';
+  document.getElementById('authBtn').textContent = isSignup ? '注 册' : '登 录';
+  document.getElementById('nickField').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('switchText').textContent = isSignup ? '已有账号？' : '还没有账号？';
+  document.getElementById('switchLink').textContent = isSignup ? '去登录' : '去注册';
+  document.getElementById('authError').style.display = 'none';
+}
+
+async function handleAuth() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authError');
+  errEl.style.display = 'none';
+
+  if (!email || !password || password.length < 6) {
+    errEl.textContent = '请输入有效邮箱和至少 6 位密码';
+    errEl.style.display = 'block'; return;
   }
 
-  document.getElementById('highestStreak').textContent = data.highestStreak;
+  const btn = document.getElementById('authBtn');
+  showLoading(btn);
 
-  // Update header
-  if (todayRecord && todayRecord.type === 'angry') {
-    document.getElementById('headerIcon').textContent = '💔';
-    document.getElementById('headerSub').textContent = '没关系，明天会更好';
-  } else if (data.todayDone && !todayRecord) {
-    // shouldn't happen, but just in case
+  if (isSignup) {
+    const nickname = document.getElementById('authNick').value.trim() || email.split('@')[0];
+    const { data, error } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { nickname } }
+    });
+    if (error) {
+      errEl.textContent = error.message; errEl.style.display = 'block'; hideLoading(btn);
+    } else if (data.user && data.user.identities && data.user.identities.length === 0) {
+      errEl.textContent = '该邮箱已被注册，请直接登录';
+      errEl.style.display = 'block'; hideLoading(btn);
+    } else {
+      // May need email confirmation
+      showToast('注册成功！请检查邮箱确认（或直接登录）');
+      hideLoading(btn);
+      toggleAuthMode(); // Switch to login mode
+      document.getElementById('authEmail').value = email;
+      document.getElementById('authPassword').value = '';
+    }
   } else {
-    document.getElementById('headerIcon').textContent = '💕';
-    document.getElementById('headerSub').textContent = '我们的约定 · 用心守护每一天';
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      errEl.textContent = error.message; errEl.style.display = 'block'; hideLoading(btn);
+    } else {
+      hideLoading(btn);
+      // onAuthStateChange will handle the rest
+    }
   }
 }
 
-function renderCards() {
-  const cardBoy = document.getElementById('cardBoy');
-  const cardGirl = document.getElementById('cardGirl');
-  const statusBoy = document.getElementById('statusBoy');
-  const statusGirl = document.getElementById('statusGirl');
+async function handleLogout() {
+  await supabase.auth.signOut();
+  currentUser = null;
+  allCheckins = [];
+  allUsers = [];
+  showAuthPage();
+  showToast('已退出登录');
+}
 
-  // Reset all states
-  cardBoy.className = 'checkin-card';
-  cardGirl.className = 'checkin-card';
-  cardBoy.style.pointerEvents = '';
-  cardGirl.style.pointerEvents = '';
-
-  if (data.todayDone) {
-    // Today is already resolved
-    const today = todayStr();
-    const record = data.history[today];
-    if (record && record.type === 'happy') {
-      cardBoy.classList.add('done');
-      cardGirl.classList.add('done');
-      statusBoy.textContent = '今天和睦 ✓';
-      statusGirl.textContent = '今天和睦 ✓';
+async function deleteAccount() {
+  // Can't delete user from client SDK without admin. Just sign out and clear.
+  // We'll delete all their checkins first
+  if (currentUser) {
+    await supabase.from('checkins').delete().eq('user_id', currentUser.id);
+    // Also delete images from storage (best effort)
+    const myCheckins = allCheckins.filter(c => c.user_id === currentUser.id && c.image_url);
+    for (const c of myCheckins) {
+      try {
+        const path = c.image_url.split('/').pop();
+        if (path) await supabase.storage.from('checkin-images').remove([path]);
+      } catch {}
     }
-    // Don't add today-done class since we want to show the happy state
+  }
+  await supabase.auth.signOut();
+  currentUser = null;
+  allCheckins = [];
+  allUsers = [];
+  showAuthPage();
+  showToast('账号数据已清除');
+}
+
+function showAuthPage() {
+  document.getElementById('authPage').style.display = 'block';
+  document.getElementById('appPage').classList.remove('active');
+  document.getElementById('appPage').style.display = 'none';
+}
+
+function showAppPage() {
+  document.getElementById('authPage').style.display = 'none';
+  document.getElementById('appPage').classList.add('active');
+  document.getElementById('appPage').style.display = 'block';
+  document.getElementById('userNameDisplay').textContent =
+    `👤 ${getUserNickname(currentUser.id)}`;
+}
+
+// ==================== 5. DATA OPERATIONS ====================
+async function doCheckin(mood) {
+  if (!currentUser) return;
+  const today = todayStr();
+  const existing = getMyCheckin(today);
+  if (existing) {
+    showToast('今天已经记录过了~');
+    return;
+  }
+
+  const btn = mood === 'happy' ? document.getElementById('btnHappy') : document.getElementById('btnAngry');
+  showLoading(btn);
+
+  const { data, error } = await supabase
+    .from('checkins')
+    .insert({ user_id: currentUser.id, date: today, mood })
+    .select()
+    .single();
+
+  hideLoading(btn);
+
+  if (error) {
+    if (error.code === '23505') { showToast('今天已经记录过了~'); return; }
+    showToast('操作失败: ' + error.message, true); return;
+  }
+
+  allCheckins.push(data);
+  await loadAllData();
+    renderAll();
+
+  // Check if now both are happy
+  if (mood === 'happy') {
+    const combined = getCombinedStatus(today);
+    if (combined === 'happy') {
+      const streak = calcStreak();
+      celebrate();
+      showToast(`🎉 太棒了！两人都和睦，连续 ${streak} 天！`);
+    } else {
+      showToast('你已打卡，等伴侣也打卡哦~ 💌');
+    }
   } else {
-    // Today is still open
-    if (data.boyChecked) {
-      cardBoy.classList.add('checked');
-      statusBoy.textContent = '已打卡 ✓';
-    } else {
-      statusBoy.textContent = '点击打卡';
+    showToast('已记录。抱抱，明天重新开始 💪');
+  }
+}
+
+async function uploadImage(file) {
+  const ext = file.name.split('.').pop();
+  const path = `${currentUser.id}/${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from('checkin-images')
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (error) throw error;
+
+  const { data: urlData } = supabase.storage
+    .from('checkin-images')
+    .getPublicUrl(path);
+
+  return urlData.publicUrl;
+}
+
+async function saveRecord() {
+  const btn = document.getElementById('btnSave');
+  showLoading(btn);
+
+  try {
+    let imageUrl = modalExistingImageUrl;
+
+    // Upload new image if selected
+    if (modalImageFile) {
+      imageUrl = await uploadImage(modalImageFile);
     }
-    if (data.girlChecked) {
-      cardGirl.classList.add('checked');
-      statusGirl.textContent = '已打卡 ✓';
+
+    const note = document.getElementById('modalNote').value.trim();
+
+    // Check if record exists
+    const existing = getMyCheckin(modalDate);
+
+    if (existing) {
+      const { error } = await supabase
+        .from('checkins')
+        .update({ mood: modalMood, note, image_url: imageUrl })
+        .eq('id', existing.id);
+      if (error) throw error;
     } else {
-      statusGirl.textContent = '点击打卡';
+      const { error } = await supabase
+        .from('checkins')
+        .insert({
+          user_id: currentUser.id,
+          date: modalDate,
+          mood: modalMood,
+          note,
+          image_url: imageUrl
+        });
+      if (error) throw error;
+    }
+
+    await loadAllData();
+        closeModal();
+    renderAll();
+    showToast('记录已保存 ✅');
+  } catch (e) {
+    showToast('保存失败: ' + e.message, true);
+  }
+  hideLoading(btn);
+}
+
+async function deleteRecord() {
+  if (!confirm('确定删除这条记录吗？')) return;
+
+  const existing = getMyCheckin(modalDate);
+  if (!existing) { closeModal(); return; }
+
+  const { error } = await supabase
+    .from('checkins')
+    .delete()
+    .eq('id', existing.id);
+
+  if (error) { showToast('删除失败: ' + error.message, true); return; }
+
+  // Also remove from storage if has image
+  if (existing.image_url) {
+    try {
+      const urlParts = existing.image_url.split('/');
+      const path = urlParts[urlParts.length - 1];
+      if (path) await supabase.storage.from('checkin-images').remove([path]);
+    } catch {}
+  }
+
+  await loadAllData();
+    closeModal();
+  renderAll();
+  showToast('记录已删除');
+}
+
+async function deleteImage() {
+  if (!confirm('删除这张图片？')) return;
+
+  if (modalExistingImageUrl) {
+    try {
+      const urlParts = modalExistingImageUrl.split('/');
+      const path = urlParts[urlParts.length - 1];
+      if (path) await supabase.storage.from('checkin-images').remove([path]);
+    } catch {}
+    modalExistingImageUrl = '';
+
+    // Update DB immediately
+    const existing = getMyCheckin(modalDate);
+    if (existing) {
+      await supabase.from('checkins').update({ image_url: '' }).eq('id', existing.id);
+    }
+    await loadAllData();
+  }
+
+  modalImageFile = null;
+  document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('imgPreview').src = '';
+  document.getElementById('btnDelImg').style.display = 'none';
+  document.getElementById('modalImageInput').value = '';
+  showToast('图片已删除');
+}
+
+function handleImageSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('图片不能超过 5MB', true); return;
+  }
+  modalImageFile = file;
+
+  // Preview
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('imgPreview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    document.getElementById('btnDelImg').style.display = 'inline-block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function setModalMood(m) {
+  modalMood = m;
+  document.getElementById('moodHappy').className = m === 'happy' ? 'sel-happy' : '';
+  document.getElementById('moodAngry').className = m === 'angry' ? 'sel-angry' : '';
+}
+
+// ==================== 6. MODAL ====================
+function openModal(date) {
+  modalDate = date;
+  modalImageFile = null;
+  modalExistingImageUrl = '';
+  document.getElementById('modalImageInput').value = '';
+  document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('imgPreview').src = '';
+  document.getElementById('btnDelImg').style.display = 'none';
+  document.getElementById('partnerSection').style.display = 'none';
+
+  const my = getMyCheckin(date);
+  modalMood = my ? my.mood : 'happy';
+  setModalMood(modalMood);
+  document.getElementById('modalNote').value = my ? (my.note || '') : '';
+
+  if (my && my.image_url) {
+    modalExistingImageUrl = my.image_url;
+    document.getElementById('imgPreview').src = my.image_url;
+    document.getElementById('imgPreview').style.display = 'block';
+    document.getElementById('btnDelImg').style.display = 'inline-block';
+  }
+
+  // Show partner's record for this date
+  const partner = getPartner();
+  if (partner) {
+    const pCheckin = getUserCheckin(partner.id, date);
+    if (pCheckin) {
+      const sec = document.getElementById('partnerSection');
+      sec.style.display = 'block';
+      const moodLabel = pCheckin.mood === 'happy' ? '💕 和睦' : '😤 生气';
+      let html = `<strong>${getUserNickname(partner.id)}</strong> 当天记录：${moodLabel}`;
+      if (pCheckin.note) {
+        html += `<div class="partner-note">${escapeHtml(pCheckin.note)}</div>`;
+      }
+      if (pCheckin.image_url) {
+        html += `<img src="${pCheckin.image_url}" alt="伴侣图片" style="max-width:100%;max-height:120px;border-radius:6px;margin-top:4px;">`;
+      }
+      sec.innerHTML = html;
     }
   }
 
-  // If todayDone, disable further check-ins
-  if (data.todayDone) {
-    cardBoy.classList.add('today-done');
-    cardGirl.classList.add('today-done');
+  document.getElementById('modalTitle').textContent = `📝 ${date}`;
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ==================== 7. RENDER ====================
+function renderStreakAndActions() {
+  const today = todayStr();
+  const combined = getCombinedStatus(today);
+  const my = getMyCheckin(today);
+  const streak = calcStreak();
+  const highest = Math.max(calcHighestStreak(), streak);
+
+  const card = document.getElementById('streakCard');
+  const num = document.getElementById('streakNumber');
+  const label = document.getElementById('streakLabel');
+
+  if (combined === 'angry') {
+    card.classList.add('angry');
+    num.textContent = '😞';
+    label.textContent = '今天生气了，明天重新开始';
+  } else if (combined === 'happy') {
+    card.classList.remove('angry');
+    num.textContent = streak;
+    label.textContent = '天没有生气了 ✨';
+    num.classList.remove('pulse');
+    void num.offsetWidth;
+    if (streak > 0) num.classList.add('pulse');
+  } else {
+    card.classList.remove('angry');
+    num.textContent = streak;
+    label.textContent = '天没有生气了 ✨';
   }
+
+  document.getElementById('highestStreak').textContent = highest;
+  document.getElementById('headerIcon').textContent = combined === 'angry' ? '💔' : '💕';
+
+  // Action buttons
+  const actionRow = document.getElementById('actionRow');
+  const doneMsg = document.getElementById('doneMsg');
+  const btnHappy = document.getElementById('btnHappy');
+  const btnAngry = document.getElementById('btnAngry');
+
+  if (my) {
+    // Already checked in today
+    actionRow.style.display = 'none';
+    doneMsg.style.display = 'flex';
+    const moodLabel = my.mood === 'happy' ? '💕 今天已打卡：和睦' : '😤 今天已记录：生气了';
+    doneMsg.innerHTML = `<button class="action-btn btn-happy done" style="flex:1;cursor:default;">${moodLabel}</button>`;
+  } else if (combined === 'happy') {
+    // Both checked in as happy (shouldn't hit this since my checkin exists, but just in case)
+    actionRow.style.display = 'none';
+    doneMsg.style.display = 'flex';
+    doneMsg.innerHTML = `<button class="action-btn btn-happy done" style="flex:1;cursor:default;">💕 今天两人都和睦！</button>`;
+  } else {
+    // Not checked in today, show buttons
+    actionRow.style.display = 'flex';
+    doneMsg.style.display = 'none';
+    btnHappy.disabled = false;
+    btnAngry.disabled = false;
+  }
+}
+
+function renderPartnerRow() {
+  const today = todayStr();
+  const partner = getPartner();
+  const row = document.getElementById('partnerRow');
+
+  if (!partner) {
+    row.innerHTML = `<div class="partner-badge you"><div class="p-name">${getUserNickname(currentUser.id)}（你）</div><div class="p-status">等待伴侣加入...</div></div>
+      <div class="partner-badge"><div class="p-name">伴侣</div><div class="p-status">未注册</div></div>`;
+    return;
+  }
+
+  const myCheck = getMyCheckin(today);
+  const pCheck = getUserCheckin(partner.id, today);
+
+  row.innerHTML = `
+    <div class="partner-badge you">
+      <div class="p-name">${getUserNickname(currentUser.id)}（你）</div>
+      <div class="p-status ${myCheck ? 'done' : ''}">${myCheck ? (myCheck.mood==='happy'?'✅ 已打卡和睦':'😤 已记录生气') : '⏳ 还未打卡'}</div>
+    </div>
+    <div class="partner-badge">
+      <div class="p-name">${getUserNickname(partner.id)}</div>
+      <div class="p-status ${pCheck ? 'done' : ''}">${pCheck ? (pCheck.mood==='happy'?'✅ 已打卡和睦':'😤 已记录生气') : '⏳ 还未打卡'}</div>
+    </div>
+  `;
 }
 
 function renderCalendar() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const year = calYear, month = calMonth;
   const today = todayStr();
-  const cells = getMonthDays(year, month);
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDow = firstDay.getDay();
+  const daysInMonth = lastDay.getDate();
+
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
 
-  cells.forEach(dateStr => {
+  // Empty cells
+  for (let i = 0; i < startDow; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'day-cell empty';
+    grid.appendChild(cell);
+  }
+
+  // Day cells
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = fmtDate(year, month, d);
     const cell = document.createElement('div');
     cell.className = 'day-cell';
+    const status = getCombinedStatus(ds);
 
-    if (dateStr === null) {
-      cell.classList.add('empty');
-      grid.appendChild(cell);
-      return;
+    if (status === 'happy') {
+      cell.classList.add('happy');
+      cell.innerHTML = `<span class="day-num">${d}</span><span class="day-icon">💕</span>`;
+    } else if (status === 'angry') {
+      cell.classList.add('angry');
+      cell.innerHTML = `<span class="day-num">${d}</span><span class="day-icon">💔</span>`;
+    } else if (status === 'partial') {
+      cell.classList.add('partial');
+      cell.innerHTML = `<span class="day-num">${d}</span><span class="day-icon">◐</span>`;
+    } else {
+      cell.innerHTML = `<span class="day-num">${d}</span>`;
     }
 
-    const dayNum = parseInt(dateStr.split('-')[2]);
-    const record = data.history[dateStr];
+    if (ds === today) cell.classList.add('today');
 
-    cell.innerHTML = `<span class="day-num">${dayNum}</span>`;
-
-    if (record) {
-      if (record.type === 'happy') {
-        cell.classList.add('happy');
-        cell.innerHTML = `<span class="day-num">${dayNum}</span><span class="day-icon">💕</span>`;
-      } else if (record.type === 'angry') {
-        cell.classList.add('angry');
-        cell.innerHTML = `<span class="day-num">${dayNum}</span><span class="day-icon">💔</span>`;
-      } else if (record.type === 'partial') {
-        cell.classList.add('partial');
-        cell.innerHTML = `<span class="day-num">${dayNum}</span><span class="day-icon">◐</span>`;
-      }
-    }
-
-    if (dateStr === today) {
-      cell.classList.add('today');
-    }
-
-    // Tooltip
-    if (record) {
-      const typeLabel = record.type === 'happy' ? '和睦' : record.type === 'angry' ? '生气了' : '待定';
-      cell.title = `${dateStr} · ${typeLabel}`;
-    }
-
+    cell.title = `${ds} - 点击编辑`;
+    cell.addEventListener('click', () => openModal(ds));
     grid.appendChild(cell);
-  });
+  }
 
-  // Update month title
-  const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+  // Title
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
   document.getElementById('calTitle').textContent = `📅 ${year}年${monthNames[month]}`;
 
-  // Update stats
-  renderMonthStats(year, month);
-}
-
-function renderMonthStats(year, month) {
-  let happyCount = 0, angryCount = 0;
-  for (const [dateStr, record] of Object.entries(data.history)) {
-    const [y, m] = dateStr.split('-').map(Number);
-    if (y === year && m === month + 1) {
-      if (record.type === 'happy') happyCount++;
-      else if (record.type === 'angry') angryCount++;
-    }
+  // Stats
+  let happy = 0, angry = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const s = getCombinedStatus(fmtDate(year, month, d));
+    if (s === 'happy') happy++; else if (s === 'angry') angry++;
   }
-  const total = happyCount + angryCount;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const passedDays = Math.min(daysInMonth, new Date().getDate());
-  const remaining = Math.max(0, passedDays - total);
+  const total = happy + angry;
+  const passed = Math.min(daysInMonth, new Date().getDate());
+  const remaining = Math.max(0, passed - total);
 
   document.getElementById('monthStats').innerHTML = `
-    <div class="stat"><span class="stat-val good">${happyCount}</span> 天和睦</div>
-    <div class="stat"><span class="stat-val bad">${angryCount}</span> 天生气</div>
+    <div class="stat"><span class="stat-val good">${happy}</span> 天和睦</div>
+    <div class="stat"><span class="stat-val bad">${angry}</span> 天生气</div>
     <div class="stat"><span class="stat-val">${remaining}</span> 天未记录</div>
   `;
 }
 
 function renderAll() {
-  renderStreak();
-  renderCards();
+  renderStreakAndActions();
+  renderPartnerRow();
   renderCalendar();
-
-  // Angry button state
-  const angryBtn = document.getElementById('angryBtn');
-  if (data.todayDone) {
-    angryBtn.classList.add('today-done');
-  } else {
-    angryBtn.classList.remove('today-done');
-  }
 }
 
-// ==================== Check-in Logic ====================
-function checkIn(person, evt) {
-  const today = todayStr();
-
-  // If today is already done, reject
-  if (data.todayDone) {
-    showToast('今天的记录已经完成啦~ 明天再来吧 💤');
-    return;
-  }
-
-  // If it's a new day, reset
-  if (data.today !== today) {
-    data.today = today;
-    data.boyChecked = false;
-    data.girlChecked = false;
-    data.todayDone = false;
-  }
-
-  // Already checked in for this person today
-  if (person === 'boy' && data.boyChecked) {
-    showToast('今天已经打过卡啦~ ❤️');
-    return;
-  }
-  if (person === 'girl' && data.girlChecked) {
-    showToast('今天已经打过卡啦~ ❤️');
-    return;
-  }
-
-  // Perform check-in
-  if (person === 'boy') data.boyChecked = true;
-  if (person === 'girl') data.girlChecked = true;
-
-  // Ripple effect
-  const cardEl = person === 'boy' ? document.getElementById('cardBoy') : document.getElementById('cardGirl');
-  addRipple(cardEl, evt);
-
-  // Check if both have checked in
-  if (data.boyChecked && data.girlChecked) {
-    // Both checked in — mark today as happy!
-    data.todayDone = true;
-    data.boyChecked = false;
-    data.girlChecked = false;
-    data.streak++;
-    if (data.streak > data.highestStreak) {
-      data.highestStreak = data.streak;
-    }
-    data.history[today] = { type: 'happy' };
-
-    saveData(data);
-    renderAll();
-    celebrate();
-    showToast(`🎉 太棒了！连续 ${data.streak} 天没有生气了！`);
-  } else {
-    // Only one checked in
-    data.history[today] = { type: 'partial' };
-    saveData(data);
-    renderAll();
-
-    const who = person === 'boy' ? '你' : '女朋友';
-    showToast(`${who} 已打卡，等另一半也打卡哦~ 💌`);
-  }
-}
-
-// ==================== Angry Logic ====================
-function openAngryModal() {
-  if (data.todayDone) return;
-  document.getElementById('angryModal').style.display = 'flex';
-}
-
-function closeAngryModal() {
-  document.getElementById('angryModal').style.display = 'none';
-}
-
-function confirmAngry() {
-  const today = todayStr();
-  document.getElementById('angryModal').style.display = 'none';
-
-  // Reset streak
-  data.streak = 0;
-  data.today = today;
-  data.todayDone = true;
-  data.boyChecked = false;
-  data.girlChecked = false;
-  data.history[today] = { type: 'angry' };
-
-  saveData(data);
-  renderAll();
-  showToast('已记录。抱抱，明天重新开始 💪💕', true);
-}
-
-// ==================== Effects ====================
-function addRipple(el, evt) {
-  const ripple = document.createElement('span');
-  ripple.className = 'ripple';
-  const rect = el.getBoundingClientRect();
-  const size = Math.max(rect.width, rect.height);
-  ripple.style.width = ripple.style.height = size + 'px';
-  ripple.style.left = (evt.clientX - rect.left - size / 2) + 'px';
-  ripple.style.top = (evt.clientY - rect.top - size / 2) + 'px';
-  el.appendChild(ripple);
-  ripple.addEventListener('animationend', () => ripple.remove());
-}
-
+// ==================== 8. EFFECTS ====================
 function celebrate() {
   const overlay = document.getElementById('celebrateOverlay');
-  const emojis = ['🎉', '💕', '✨', '💖', '🎊', '🥰', '💝', '🌟', '💗', '😍', '💘', '🌹'];
-
+  const emojis = ['🎉','💕','✨','💖','🎊','🥰','💝','🌟','💗','😍','💘','🌹'];
   for (let i = 0; i < 36; i++) {
-    const confetti = document.createElement('span');
-    confetti.className = 'confetti';
-    confetti.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-    confetti.style.left = Math.random() * 100 + '%';
-    confetti.style.fontSize = (1 + Math.random() * 1.5) + 'rem';
-    confetti.style.animationDuration = (2 + Math.random() * 3) + 's';
-    confetti.style.animationDelay = Math.random() * 0.5 + 's';
-    overlay.appendChild(confetti);
-    confetti.addEventListener('animationend', () => confetti.remove());
+    const el = document.createElement('span');
+    el.className = 'confetti';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.left = Math.random() * 100 + '%';
+    el.style.fontSize = (1 + Math.random() * 1.5) + 'rem';
+    el.style.animationDuration = (2 + Math.random() * 3) + 's';
+    el.style.animationDelay = Math.random() * 0.5 + 's';
+    overlay.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
   }
 }
 
-function showToast(msg, isAngry) {
-  const toast = document.getElementById('toast');
-  toast.textContent = msg;
-  toast.classList.toggle('angry-toast', !!isAngry);
-  toast.classList.add('show');
-  clearTimeout(toast._timeout);
-  toast._timeout = setTimeout(() => toast.classList.remove('show'), 2400);
-}
-
-// ==================== Save Name ====================
-function saveName(person, el) {
-  const name = el.textContent.trim() || (person === 'boy' ? '我' : '女朋友');
-  if (person === 'boy') data.nameBoy = name;
-  else data.nameGirl = name;
-  saveData(data);
-}
-
-// ==================== Floating Hearts ====================
 function createFloatingHearts() {
   const bg = document.getElementById('heartsBg');
-  const hearts = ['💕', '💖', '💗', '💝', '💘', '❤️', '🩷'];
-
+  const hearts = ['💕','💖','💗','💝','💘','❤️'];
   function spawn() {
-    const heart = document.createElement('span');
-    heart.className = 'floating-heart';
-    heart.textContent = hearts[Math.floor(Math.random() * hearts.length)];
-    heart.style.left = Math.random() * 96 + '%';
-    heart.style.fontSize = (0.7 + Math.random() * 1.5) + 'rem';
-    heart.style.animationDuration = (8 + Math.random() * 14) + 's';
-    bg.appendChild(heart);
-    heart.addEventListener('animationend', () => heart.remove());
+    const el = document.createElement('span');
+    el.className = 'floating-heart';
+    el.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+    el.style.left = Math.random() * 96 + '%';
+    el.style.fontSize = (0.7 + Math.random() * 1.5) + 'rem';
+    el.style.animationDuration = (8 + Math.random() * 14) + 's';
+    bg.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
   }
-
-  setInterval(spawn, 1300);
-  for (let i = 0; i < 5; i++) {
-    setTimeout(spawn, i * 500);
-  }
+  setInterval(spawn, 1400);
+  for (let i = 0; i < 5; i++) setTimeout(spawn, i * 500);
 }
 
-// ==================== Reset ====================
-function resetAll() {
-  if (confirm('确定要重置所有打卡记录吗？\n\n这个操作不可撤销哦~ 🥺')) {
-    data = {
-      streak: 0,
-      highestStreak: 0,
-      today: todayStr(),
-      boyChecked: false,
-      girlChecked: false,
-      todayDone: false,
-      history: {},
-      nameBoy: data.nameBoy || '我',
-      nameGirl: data.nameGirl || '女朋友'
-    };
-    saveData(data);
-    renderAll();
-    showToast('已重置，重新开始吧~ 💪');
-  }
-}
-
-// ==================== Quote Rotation ====================
 const quotes = [
-  '爱是恒久忍耐，又有恩慈 💗',
-  '两个人在一起，就是最好的事 🌟',
-  '每一次忍耐，都是爱的证明 💝',
-  '愿我们永远不说再见 🥰',
-  '你是我的心跳，也是我的平静 💕',
-  '最好的爱情，是一起变得更好 ✨',
-  '不生气，因为舍不得让你难过 💖',
-  '我们的每一天，都值得珍惜 🌹',
-  '吵架是暂时的，爱是永远的 💘',
-  '和好之后，感情会更深 🤗',
+  '爱是恒久忍耐，又有恩慈 💗','两个人在一起，就是最好的事 🌟',
+  '每一次忍耐，都是爱的证明 💝','愿我们永远不说再见 🥰',
+  '你是我的心跳，也是我的平静 💕','最好的爱情，是一起变得更好 ✨',
+  '不生气，因为舍不得让你难过 💖','我们的每一天，都值得珍惜 🌹',
+  '吵架是暂时的，爱是永远的 💘','和好之后，感情会更深 🤗',
 ];
-
 function rotateQuote() {
   const el = document.getElementById('quote');
   const idx = Math.floor(Math.random() * quotes.length);
   el.style.opacity = '0';
-  setTimeout(() => {
-    el.textContent = quotes[idx];
-    el.style.opacity = '0.7';
-  }, 400);
+  setTimeout(() => { el.textContent = quotes[idx]; el.style.opacity = '0.65'; }, 400);
 }
 
-// ==================== Init ====================
-function init() {
-  const today = todayStr();
+// ==================== 9. CALENDAR NAVIGATION ====================
+function navMonth(delta) {
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
 
-  // New day logic
-  if (data.today !== today) {
-    // Yesterday was partially checked in (only one person) → streak broken
-    if (data.today && !data.todayDone && (data.boyChecked || data.girlChecked)) {
-      data.streak = 0;
-      // Mark yesterday as partial (no change needed, it's already in history)
-    }
-    // Reset for new day
-    data.today = today;
-    data.boyChecked = false;
-    data.girlChecked = false;
-    data.todayDone = false;
-    saveData(data);
-  }
+function navToday() {
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  renderCalendar();
+}
 
-  // Restore saved names
-  document.getElementById('nameBoy').textContent = data.nameBoy || '我';
-  document.getElementById('nameGirl').textContent = data.nameGirl || '女朋友';
-
-  // If today was already resolved (angry/happy), render accordingly
-  renderAll();
+// ==================== 10. INIT ====================
+async function init() {
   createFloatingHearts();
 
-  // Rotate quote every 8 seconds
+  // Init calendar to current month
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+
+  // Check session
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    // Ensure profile exists (for users registered before the trigger was added)
+    const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+    if (!myProfile) {
+      const meta = currentUser.user_metadata || {};
+      await supabase.from('profiles').insert({
+        id: currentUser.id,
+        nickname: meta.nickname || currentUser.email.split('@')[0],
+        email: currentUser.email
+      });
+    }
+
+    await loadAllData();
+    showAppPage();
+    renderAll();
+  } else {
+    showAuthPage();
+  }
+
+  // Listen for auth changes
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (session) {
+      currentUser = session.user;
+      await loadAllData();
+      showAppPage();
+      renderAll();
+    } else {
+      currentUser = null;
+      showAuthPage();
+    }
+  });
+
+  // Quote rotation
   setInterval(rotateQuote, 8000);
   rotateQuote();
+
+  // Keyboard: Enter to submit auth
+  document.getElementById('authPassword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleAuth();
+  });
+  document.getElementById('authEmail').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('authPassword').focus();
+  });
 }
 
 init();
