@@ -940,23 +940,28 @@ async function bindPartner() {
   const code = document.getElementById('bindCode').value.trim().toUpperCase();
   if (!code || code.length !== 6) { showToast('请输入6位配对码', true); return; }
 
+  showToast('正在查找配对码...');
+
   // Find partner by pair code
-  const { data: profiles } = await supabase.from('profiles').select('id').eq('pair_code', code);
+  const { data: profiles, error: findErr } = await supabase.from('profiles').select('id,nickname').eq('pair_code', code);
+
+  if (findErr) { showToast('查询失败: ' + findErr.message, true); return; }
+
   if (!profiles || profiles.length === 0) {
-    showToast('未找到该配对码，请确认对方已生成配对码', true); return;
+    showToast('未找到该配对码！请确认：\n1. 对方已刷新页面生成配对码\n2. 输入正确（不区分大小写）', true); return;
   }
   const partnerId = profiles[0].id;
   if (partnerId === currentUser.id) { showToast('不能绑定自己哦~', true); return; }
 
   // Set my partner_id to send request
-  const { error } = await supabase.from('profiles').update({ partner_id: partnerId }).eq('id', currentUser.id);
-  if (error) { showToast('请求失败: ' + error.message, true); return; }
+  const { error: updateErr } = await supabase.from('profiles').update({ partner_id: partnerId }).eq('id', currentUser.id);
+  if (updateErr) { showToast('绑定失败: ' + updateErr.message, true); return; }
 
   allProfiles[currentUser.id].partner_id = partnerId;
   await loadAllData();
   renderBindCard();
   renderPartnerRow();
-  showToast('已发送绑定请求，等对方确认 💌');
+  showToast('已发送绑定请求，等 ' + (profiles[0].nickname || '对方') + ' 确认 💌');
 }
 
 async function acceptBind() {
