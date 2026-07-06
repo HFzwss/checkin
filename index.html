@@ -633,7 +633,7 @@ async function saveSecurity() {
 
   const { error } = await supabase.from('profiles').update({
     security_question: question,
-    security_answer_hash: answer.trim()
+    security_answer_hash: sha256(answer.toLowerCase().trim())
   }).eq('id', currentUser.id);
 
   if (error) { showToast('保存失败: ' + error.message, true); return; }
@@ -719,7 +719,7 @@ async function doSignup() {
         nickname,
         email,
         security_question: question,
-        security_answer_hash: answer.trim()
+        security_answer_hash: sha256(answer.toLowerCase().trim())
       });
     }, 500);
     showToast('注册成功！请登录');
@@ -771,7 +771,7 @@ async function forgotStep2() {
     const res = await fetch(EDGE_FN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email, answer_hash: answer.trim(), new_password: newPassword })
+      body: JSON.stringify({ email, answer_hash: sha256(answer.toLowerCase().trim()), new_password: newPassword })
     });
     const result = await res.json();
 
