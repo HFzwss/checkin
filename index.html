@@ -367,7 +367,7 @@ body{
     <div class="icon-row" id="headerIcon">💕</div>
     <h1>不生气打卡</h1>
     <div class="user-bar">
-      <span id="userNameDisplay">👤</span>
+      <span id="userNameDisplay" style="cursor:pointer;border-bottom:1px dashed rgba(255,255,255,.2);" onclick="editNickname()" title="点击修改昵称">👤</span>
       <span class="logout-link" onclick="handleLogout()">退出登录</span>
     </div>
   </div>
@@ -491,7 +491,7 @@ body{
         <button class="btn-del-img" id="btnDelImg" onclick="deleteImage()" style="display:none;">🗑 删除</button>
       </div>
       <img class="img-preview" id="imgPreview">
-      <div class="upload-hint">jpg/png/gif，最大5MB</div>
+      <div class="upload-hint">最大 1MB，超出自动压缩</div>
     </div>
     <div class="partner-section" id="partnerSection" style="display:none;"></div>
     <div class="modal-actions">
@@ -791,6 +791,20 @@ async function forgotStep2() {
   hideLoading(btn);
 }
 
+// ==================== NICKNAME ====================
+async function editNickname() {
+  const current = getUserNickname(currentUser.id);
+  const name = prompt('修改昵称：', current);
+  if (!name || name.trim() === '' || name.trim() === current) return;
+  const trimmed = name.trim();
+  const { error } = await supabase.from('profiles').update({ nickname: trimmed }).eq('id', currentUser.id);
+  if (error) { showToast('修改失败: ' + error.message, true); return; }
+  if (allProfiles[currentUser.id]) allProfiles[currentUser.id].nickname = trimmed;
+  document.getElementById('userNameDisplay').textContent = '👤 ' + trimmed;
+  renderAll();
+  showToast('昵称已更新 ✅');
+}
+
 // ==================== LOGOUT / DELETE ====================
 async function handleLogout() { await supabase.auth.signOut(); currentUser=null; allCheckins=[]; allProfiles={}; showAuthPage(); }
 async function deleteAccount() {
@@ -1059,7 +1073,55 @@ function openModal(date){
 }
 function closeModal(){document.getElementById('editModal').style.display='none';}
 function setModalMood(m){modalMood=m;document.getElementById('moodHappy').className=m==='happy'?'sel-happy':'';document.getElementById('moodAngry').className=m==='angry'?'sel-angry':'';}
-function handleImageSelect(e){const f=e.target.files[0];if(!f)return;if(f.size>5*1024*1024){showToast('图片不能超过5MB',true);return;}modalImageFile=f;const r=new FileReader();r.onload=ev=>{const img=document.getElementById('imgPreview');img.src=ev.target.result;img.style.display='block';document.getElementById('btnDelImg').style.display='inline-block';};r.readAsDataURL(f);}
+async function handleImageSelect(e){
+  const f=e.target.files[0];if(!f)return;
+  modalImageFile = await compressImage(f);
+  const r=new FileReader();r.onload=ev=>{const img=document.getElementById('imgPreview');img.src=ev.target.result;img.style.display='block';document.getElementById('btnDelImg').style.display='inline-block';};r.readAsDataURL(modalImageFile);
+}
+
+async function compressImage(file, maxMB = 1) {
+  const maxBytes = maxMB * 1024 * 1024;
+  if (file.size <= maxBytes) return file;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      let { width, height } = img;
+
+      // Scale down large images
+      const maxDim = 1920;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else { width = Math.round(width * maxDim / height); height = maxDim; }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Try compressing with decreasing quality
+      let quality = 0.85;
+      const tryCompress = () => {
+        canvas.toBlob((blob) => {
+          if (!blob) { resolve(file); return; }
+          if (blob.size <= maxBytes || quality <= 0.3) {
+            const compressed = new File([blob], file.name, { type: 'image/jpeg' });
+            resolve(compressed);
+          } else {
+            quality -= 0.15;
+            tryCompress();
+          }
+        }, 'image/jpeg', quality);
+      };
+      tryCompress();
+    };
+    img.src = url;
+  });
+}
 
 async function saveRecord(){
   const btn=document.getElementById('btnSave');showLoading(btn);
