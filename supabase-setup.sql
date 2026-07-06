@@ -123,3 +123,4 @@ alter table profiles add column if not exists security_question text default '';
 alter table profiles add column if not exists security_answer_hash text default '';
 alter table profiles add column if not exists failed_logins int default 0;
 alter table profiles add column if not exists last_failed_login timestamptz;
+alter table profiles add column if not exists partner_id uuid references auth.users;

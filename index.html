@@ -153,6 +153,10 @@ body{
 .sec-alert .sec-btn:hover{background:rgba(240,192,96,.25)}
 .sec-setup-form{margin-top:8px;display:none}
 .sec-setup-form.show{display:block}
+.bind-card{background:var(--card-bg);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;text-align:center;font-size:.82rem;color:var(--text-dim)}
+.bind-card .bind-form{margin-top:8px;display:flex;gap:8px}
+.bind-card input{flex:1;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--text);font-size:.82rem;font-family:inherit;outline:none}
+.bind-card input:focus{border-color:var(--pink-light)}
 .partner-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .partner-badge{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);backdrop-filter:blur(14px);padding:12px;text-align:center;font-size:.85rem;box-shadow:var(--shadow)}
 .partner-badge .p-name{font-weight:600;color:#e0d0d8;margin-bottom:2px}
@@ -404,6 +408,26 @@ body{
   </div>
 
   <div class="partner-row" id="partnerRow"></div>
+
+  <!-- Bind partner (when no partner) -->
+  <div class="bind-card" id="bindCard" style="display:none;">
+    <span>💔 还没有绑定伴侣</span>
+    <div class="bind-form" id="bindForm">
+      <input type="email" id="bindEmail" placeholder="输入伴侣的注册邮箱">
+      <button class="sec-btn" onclick="bindPartner()">绑定</button>
+    </div>
+    <div class="bind-waiting" id="bindWaiting" style="display:none;">
+      <span>⏳ 等待对方确认...</span>
+      <button class="sec-btn" onclick="cancelBind()">取消</button>
+    </div>
+    <div class="bind-incoming" id="bindIncoming" style="display:none;">
+      <span>📩 <strong id="bindRequester"></strong> 想和你绑定伴侣</span>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button class="sec-btn" onclick="acceptBind()">✅ 接受</button>
+        <button class="sec-btn" onclick="rejectBind()" style="border-color:rgba(255,71,87,.3);color:#ff8088;">拒绝</button>
+      </div>
+    </div>
+  </div>
 
   <div class="action-row" id="actionRow">
     <button class="action-btn btn-happy" id="btnHappy" onclick="doCheckin('happy')">💕 今天和睦</button>
@@ -789,7 +813,7 @@ async function loadAllData() {
   ]);
   allCheckins = checkins || [];
   allProfiles = {};
-  if (profiles) for(const p of profiles) allProfiles[p.id] = { nickname: p.nickname, email: p.email };
+  if (profiles) for(const p of profiles) allProfiles[p.id] = { nickname: p.nickname, email: p.email, partner_id: p.partner_id };
 
   // Ensure current user in profiles
   if (currentUser && !allProfiles[currentUser.id]) {
@@ -802,7 +826,144 @@ async function loadAllData() {
 }
 
 function getUserNickname(uid) { return (allProfiles[uid]&&allProfiles[uid].nickname) || (uid===currentUser?.id ? currentUser.email?.split('@')[0] : '伴侣') || '伴侣'; }
-function getPartner() { const ids=Object.keys(allProfiles).filter(id=>id!==currentUser?.id); return ids.length>0 ? {id:ids[0],...allProfiles[ids[0]]} : null; }
+function getPartner() {
+  if (!currentUser || !allProfiles[currentUser.id]) return null;
+  const pid = allProfiles[currentUser.id].partner_id;
+  if (pid && allProfiles[pid]) return { id: pid, ...allProfiles[pid] };
+  return null;
+}
+function isPartnerBound() { return !!getPartner(); }
+
+function getMyProfile() { return currentUser ? allProfiles[currentUser.id] : null; }
+
+function renderBindCard() {
+  const card = document.getElementById('bindCard');
+  const form = document.getElementById('bindForm');
+  const waiting = document.getElementById('bindWaiting');
+  const incoming = document.getElementById('bindIncoming');
+
+  if (!currentUser) return;
+
+  const myP = getMyProfile();
+  const partner = getPartner();
+
+  if (partner) {
+    // Bound!
+    card.style.display = 'none';
+    return;
+  }
+
+  card.style.display = 'block';
+
+  // Check if I have a pending outgoing request
+  if (myP && myP.partner_id) {
+    // I sent a request, waiting for partner
+    form.style.display = 'none';
+    waiting.style.display = 'block';
+    incoming.style.display = 'none';
+    return;
+  }
+
+  // Check if someone wants to bind with me
+  const requester = Object.entries(allProfiles).find(([id, p]) =>
+    p.partner_id === currentUser.id && id !== currentUser.id
+  );
+
+  if (requester) {
+    form.style.display = 'none';
+    waiting.style.display = 'none';
+    incoming.style.display = 'block';
+    document.getElementById('bindRequester').textContent = requester[1].nickname || requester[1].email;
+    // Store requester ID for accept
+    incoming.dataset.requesterId = requester[0];
+    return;
+  }
+
+  // No requests, show connect form
+  form.style.display = 'flex';
+  waiting.style.display = 'none';
+  incoming.style.display = 'none';
+}
+
+async function bindPartner() {
+  const email = document.getElementById('bindEmail').value.trim();
+  if (!email) { showToast('请输入伴侣的注册邮箱', true); return; }
+
+  // Find the partner's profile by email
+  const { data: profiles } = await supabase.from('profiles').select('id').eq('email', email);
+  if (!profiles || profiles.length === 0) {
+    showToast('未找到该邮箱的注册用户，请确认对方已注册', true); return;
+  }
+  const partnerId = profiles[0].id;
+  if (partnerId === currentUser.id) { showToast('不能绑定自己哦~', true); return; }
+
+  // Set my partner_id to send request
+  const { error } = await supabase.from('profiles').update({ partner_id: partnerId }).eq('id', currentUser.id);
+  if (error) { showToast('请求失败: ' + error.message, true); return; }
+
+  allProfiles[currentUser.id].partner_id = partnerId;
+  await loadAllData();
+  renderBindCard();
+  renderPartnerRow();
+  showToast('已发送绑定请求，等对方确认 💌');
+}
+
+async function acceptBind() {
+  const incoming = document.getElementById('bindIncoming');
+  const requesterId = incoming.dataset.requesterId;
+  if (!requesterId) return;
+
+  // Set my partner_id to requester → both matched
+  const { error } = await supabase.from('profiles').update({ partner_id: requesterId }).eq('id', currentUser.id);
+  if (error) { showToast('绑定失败: ' + error.message, true); return; }
+
+  await loadAllData();
+  renderBindCard();
+  renderPartnerRow();
+  renderAll();
+  showToast('伴侣绑定成功！💕');
+}
+
+async function rejectBind() {
+  const incoming = document.getElementById('bindIncoming');
+  const requesterId = incoming.dataset.requesterId;
+  if (!requesterId) return;
+
+  // Clear the requester's partner_id
+  await supabase.from('profiles').update({ partner_id: null }).eq('id', requesterId);
+
+  await loadAllData();
+  renderBindCard();
+  renderPartnerRow();
+  showToast('已拒绝');
+}
+
+async function cancelBind() {
+  // Clear my partner_id
+  await supabase.from('profiles').update({ partner_id: null }).eq('id', currentUser.id);
+  allProfiles[currentUser.id].partner_id = null;
+  document.getElementById('bindEmail').value = '';
+  renderBindCard();
+  showToast('已取消');
+}
+
+function renderPartnerRow() {
+  const today = todayStr();
+  const partner = getPartner();
+
+  if (!partner) {
+    document.getElementById('partnerRow').innerHTML = `
+      <div class="partner-badge you"><div class="p-name">${getUserNickname(currentUser.id)}（你）</div><div class="p-status">等待绑定伴侣...</div></div>
+      <div class="partner-badge"><div class="p-name">伴侣</div><div class="p-status">未绑定</div></div>`;
+    return;
+  }
+
+  const mc = getMyCheckin(today);
+  const pc = getUserCheckin(partner.id, today);
+  document.getElementById('partnerRow').innerHTML = `
+    <div class="partner-badge you"><div class="p-name">${getUserNickname(currentUser.id)}（你）</div><div class="p-status ${mc?'done':''}">${mc?(mc.mood==='happy'?'✅ 和睦':'😤 生气'):'⏳ 未打卡'}</div></div>
+    <div class="partner-badge"><div class="p-name">${getUserNickname(partner.id)}</div><div class="p-status ${pc?'done':''}">${pc?(pc.mood==='happy'?'✅ 和睦':'😤 生气'):'⏳ 未打卡'}</div></div>`;
+}
 function getUserCheckin(uid,date) { return allCheckins.find(c=>c.user_id===uid&&c.date===date)||null; }
 function getMyCheckin(date) { return getUserCheckin(currentUser.id, date); }
 function getCombinedStatus(date) {
@@ -898,15 +1059,6 @@ function renderStreakAndActions(){
   else{ar.style.display='flex';dm.style.display='none';document.getElementById('btnHappy').disabled=false;document.getElementById('btnAngry').disabled=false;}
 }
 
-function renderPartnerRow(){
-  const today=todayStr(),partner=getPartner();
-  if(!partner){document.getElementById('partnerRow').innerHTML=`<div class="partner-badge you"><div class="p-name">${getUserNickname(currentUser.id)}（你）</div><div class="p-status">等待伴侣加入...</div></div><div class="partner-badge"><div class="p-name">伴侣</div><div class="p-status">未注册</div></div>`;return;}
-  const mc=getMyCheckin(today),pc=getUserCheckin(partner.id,today);
-  document.getElementById('partnerRow').innerHTML=`
-    <div class="partner-badge you"><div class="p-name">${getUserNickname(currentUser.id)}（你）</div><div class="p-status ${mc?'done':''}">${mc?(mc.mood==='happy'?'✅ 和睦':'😤 生气'):'⏳ 未打卡'}</div></div>
-    <div class="partner-badge"><div class="p-name">${getUserNickname(partner.id)}</div><div class="p-status ${pc?'done':''}">${pc?(pc.mood==='happy'?'✅ 和睦':'😤 生气'):'⏳ 未打卡'}</div></div>`;
-}
-
 function renderCalendar(){
   const y=calYear,m=calMonth,today=todayStr(),fd=new Date(y,m,1),ld=new Date(y,m+1,0),startDow=fd.getDay(),dim=ld.getDate(),grid=document.getElementById('calGrid');
   grid.innerHTML='';
@@ -946,11 +1098,11 @@ async function init(){
     currentUser=session.user;
     const {data:mp}=await supabase.from('profiles').select('*').eq('id',currentUser.id).maybeSingle();
     if(!mp){const meta=currentUser.user_metadata||{};await supabase.from('profiles').insert({id:currentUser.id,nickname:meta.nickname||currentUser.email.split('@')[0],email:currentUser.email});}
-    await loadAllData();showAppPage();renderAll();checkSecurityQuestion();
+    await loadAllData();showAppPage();renderAll();checkSecurityQuestion();renderBindCard();
   }else{showAuthPage();showLockout();}
 
   supabase.auth.onAuthStateChange(async(ev,sess)=>{
-    if(sess){currentUser=sess.user;await loadAllData();showAppPage();renderAll();checkSecurityQuestion();}else{currentUser=null;showAuthPage();showLockout();}
+    if(sess){currentUser=sess.user;await loadAllData();showAppPage();renderAll();checkSecurityQuestion();renderBindCard();}else{currentUser=null;showAuthPage();showLockout();}
   });
 
   setInterval(rotateQuote,8000);rotateQuote();
