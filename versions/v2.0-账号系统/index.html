@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💕 不生气打卡</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<script>
+if (!window.supabase?.createClient) {
+  document.write('<div style="position:fixed;inset:0;z-index:999;background:#1a0a14;display:flex;align-items:center;justify-content:center;color:#ff6b9d;font-size:1.2rem;text-align:center;padding:20px;font-family:sans-serif;">😢 Supabase 加载失败<br><small style="color:#b8a0b0;">请检查网络后刷新</small></div>');
+}
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --pink:#ff6b9d;--pink-light:#ffb3cc;--rose:#e8536c;--peach:#ffa07a;--gold:#f0c060;
+  --red:#ff4757;--bg-start:#1a0a14;--bg-mid:#2d1b2e;--bg-end:#0f1626;
+  --card-bg:rgba(255,255,255,0.06);--card-border:rgba(255,255,255,0.10);
+  --text:#f0e0e8;--text-dim:#b8a0b0;--shadow:0 8px 32px rgba(0,0,0,0.25);
+  --radius:18px;--radius-sm:12px;
+}
+body{
+  font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  min-height:100vh;color:var(--text);
+  background:linear-gradient(135deg,var(--bg-start),var(--bg-mid) 40%,var(--bg-end));
+  display:flex;align-items:center;justify-content:center;overflow-x:hidden;
+}
+.hearts-bg{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.floating-heart{position:absolute;animation:floatUp linear infinite;opacity:0;font-size:1.4rem}
+@keyframes floatUp{
+  0%{transform:translateY(105vh) scale(.3) rotate(0deg);opacity:0}
+  10%{opacity:.35}90%{opacity:.15}
+  100%{transform:translateY(-10vh) scale(1.1) rotate(25deg);opacity:0}
+}
+.toast{
+  position:fixed;top:24px;left:50%;transform:translateX(-50%);
+  background:rgba(30,10,20,.95);color:#fff;padding:12px 26px;border-radius:50px;
+  font-weight:600;font-size:.88rem;z-index:300;pointer-events:none;
+  opacity:0;transition:opacity .4s,transform .4s;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(4px)}
+.toast.err{background:rgba(180,40,40,.95);border-color:rgba(255,71,87,.4)}
+.celebrate-overlay{position:fixed;inset:0;pointer-events:none;z-index:200}
+.confetti{position:absolute;animation:confettiFall linear forwards}
+@keyframes confettiFall{
+  0%{transform:translateY(-10vh) rotate(0deg) scale(1);opacity:1}
+  80%{opacity:.8}
+  100%{transform:translateY(110vh) rotate(720deg) scale(.3);opacity:0}
+}
+
+/* ========= AUTH PAGE ========= */
+.auth-container{
+  position:relative;z-index:1;width:min(420px,92vw);
+  background:var(--card-bg);border:1px solid var(--card-border);
+  border-radius:var(--radius);backdrop-filter:blur(14px);
+  padding:30px 24px;box-shadow:var(--shadow);text-align:center;
+}
+.auth-container .auth-icon{font-size:2.4rem;margin-bottom:6px}
+.auth-container h2{
+  font-size:1.5rem;font-weight:700;margin-bottom:16px;
+  background:linear-gradient(135deg,var(--pink-light),var(--pink),var(--peach));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.auth-container .form-group{margin-bottom:12px;text-align:left}
+.auth-container label{display:block;font-size:.78rem;color:var(--text-dim);margin-bottom:3px}
+.auth-container input,.auth-container select{
+  width:100%;padding:10px 14px;border-radius:10px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.05);color:var(--text);
+  font-size:.88rem;font-family:inherit;outline:none;transition:border-color .3s;
+}
+.auth-container select{appearance:none;cursor:pointer}
+.auth-container select option{background:#2d1b2e;color:var(--text)}
+.auth-container input:focus,.auth-container select:focus{border-color:var(--pink)}
+.auth-container .btn{
+  width:100%;padding:12px;border-radius:10px;border:none;
+  font-size:.93rem;font-weight:600;cursor:pointer;font-family:inherit;
+  transition:all .3s;margin-top:4px;
+}
+.auth-container .btn-primary{
+  background:linear-gradient(135deg,var(--pink),var(--rose));color:#fff;
+}
+.auth-container .btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.auth-container .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.auth-container .auth-switch{margin-top:14px;font-size:.8rem;color:var(--text-dim)}
+.auth-container .auth-switch a{color:var(--pink-light);cursor:pointer;text-decoration:underline}
+.auth-container .auth-switch a:hover{color:#fff}
+.auth-error{color:#ff8088;font-size:.78rem;margin-top:6px;display:none}
+.auth-success{color:#80d080;font-size:.78rem;margin-top:6px;display:none}
+
+/* Lockout countdown */
+.lockout-msg{
+  background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.25);
+  border-radius:10px;padding:10px 14px;margin-bottom:12px;
+  font-size:.8rem;color:#ff8088;display:none;
+}
+.lockout-msg.show{display:block}
+.lockout-msg .countdown{font-weight:700;font-size:1.1rem}
+
+/* Step indicator */
+.step-indicator{display:flex;gap:6px;justify-content:center;margin-bottom:14px}
+.step-indicator .step{
+  width:28px;height:4px;border-radius:2px;background:rgba(255,255,255,.1);
+  transition:background .3s
+}
+.step-indicator .step.active{background:var(--pink)}
+
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ========= MAIN APP ========= */
+.app{position:relative;z-index:1;width:min(500px,94vw);padding:28px 22px 20px;display:none}
+.app.active{display:block}
+.header{text-align:center;margin-bottom:20px}
+.header .icon-row{font-size:2.2rem;margin-bottom:4px;animation:gentleBounce 2s ease-in-out infinite}
+@keyframes gentleBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.header h1{
+  font-size:1.7rem;font-weight:700;letter-spacing:1px;
+  background:linear-gradient(135deg,var(--pink-light),var(--pink),var(--peach));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.header .user-bar{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:6px;font-size:.8rem;color:var(--text-dim)}
+.header .user-bar .logout-link{color:var(--text-dim);opacity:.5;cursor:pointer;text-decoration:underline;font-size:.72rem}
+.header .user-bar .logout-link:hover{opacity:.8}
+
+.streak-card{
+  background:var(--card-bg);border:1px solid var(--card-border);
+  border-radius:var(--radius);backdrop-filter:blur(14px);
+  padding:18px 16px;text-align:center;margin-bottom:14px;
+  box-shadow:var(--shadow);transition:border-color .4s;
+}
+.streak-card.angry{border-color:rgba(255,71,87,.4)}
+.streak-card .streak-number{
+  font-size:4rem;font-weight:800;line-height:1;
+  background:linear-gradient(180deg,#fff 20%,var(--pink-light));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.streak-card.angry .streak-number{
+  background:linear-gradient(180deg,#ff6b6b 20%,var(--red));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:1.8rem;
+}
+.streak-card .streak-number.pulse{animation:popIn .6s cubic-bezier(.68,-.6,.32,1.6)}
+@keyframes popIn{0%{transform:scale(.5);opacity:0}50%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}
+.streak-card .streak-label{font-size:.9rem;color:var(--text-dim);margin-top:2px;transition:color .4s}
+.streak-card.angry .streak-label{color:#ff6b6b}
+.streak-card .highest{font-size:.75rem;color:var(--text-dim);opacity:.7;margin-top:4px}
+.streak-card .highest span{color:var(--gold);font-weight:600}
+
+.sec-alert{background:rgba(240,192,96,.08);border:1px solid rgba(240,192,96,.25);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;display:none;align-items:center;gap:10px;font-size:.8rem;color:var(--gold)}
+.sec-alert.show{display:flex}
+.sec-alert .sec-btn{background:rgba(240,192,96,.15);border:1px solid rgba(240,192,96,.3);color:var(--gold);border-radius:8px;padding:6px 14px;font-size:.75rem;cursor:pointer;font-family:inherit;white-space:nowrap}
+.sec-alert .sec-btn:hover{background:rgba(240,192,96,.25)}
+.sec-setup-form{margin-top:8px;display:none}
+.sec-setup-form.show{display:block}
+.bind-card{background:var(--card-bg);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;text-align:center;font-size:.82rem;color:var(--text-dim)}
+.bind-card .bind-form{margin-top:8px;display:flex;gap:8px}
+.bind-card input{flex:1;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--text);font-size:.82rem;font-family:inherit;outline:none}
+.bind-card input:focus{border-color:var(--pink-light)}
+.pair-code-display{font-size:1.4rem;font-weight:800;letter-spacing:4px;color:var(--pink-light);background:rgba(255,107,157,.1);border:1px dashed rgba(255,107,157,.3);border-radius:10px;padding:8px 16px;text-align:center;user-select:all}
+.partner-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.partner-badge{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);backdrop-filter:blur(14px);padding:12px;text-align:center;font-size:.85rem;box-shadow:var(--shadow)}
+.partner-badge .p-name{font-weight:600;color:#e0d0d8;margin-bottom:2px}
+.partner-badge .p-status{font-size:.72rem;color:var(--text-dim)}
+.partner-badge .p-status.done{color:var(--gold)}
+.partner-badge.you{border-color:rgba(255,107,157,.3)}
+
+.action-row{display:flex;gap:10px;margin-bottom:14px}
+.action-btn{flex:1;padding:14px 10px;border-radius:var(--radius);border:1.5px solid var(--card-border);font-size:.9rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .35s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-happy{background:rgba(255,107,157,.08);color:var(--pink-light);border-color:rgba(255,107,157,.3)}
+.btn-happy:hover{background:rgba(255,107,157,.18);border-color:rgba(255,107,157,.55);box-shadow:0 8px 28px rgba(255,107,157,.2)}
+.btn-happy:disabled,.btn-angry:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+.btn-happy.done{background:rgba(255,107,157,.15);border-color:rgba(255,107,157,.5);cursor:default}
+.btn-angry{background:rgba(255,71,87,.05);color:#e0a0a8;border-color:rgba(255,71,87,.25);flex:.6}
+.btn-angry:hover{background:rgba(255,71,87,.15);border-color:rgba(255,71,87,.5);color:#ffa0aa}
+
+/* Calendar */
+.calendar-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);backdrop-filter:blur(14px);padding:14px 12px 10px;margin-bottom:14px;box-shadow:var(--shadow)}
+.calendar-card .cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.calendar-card .cal-title{font-size:.85rem;font-weight:600;color:#d0c0d0}
+.calendar-card .cal-nav{display:flex;gap:4px}
+.calendar-card .cal-nav button{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-size:.75rem;cursor:pointer;font-family:inherit}
+.calendar-card .cal-nav button:hover{background:rgba(255,255,255,.12);color:#fff}
+.calendar-card .cal-nav button.active{background:rgba(255,107,157,.2);color:var(--pink-light)}
+.cal-legend{display:flex;gap:12px;font-size:.6rem;color:var(--text-dim);opacity:.6;align-items:center;margin-bottom:8px}
+.cal-legend span{display:flex;align-items:center;gap:3px}
+.legend-dot{display:inline-block;width:7px;height:7px;border-radius:50%}
+.legend-dot.happy{background:var(--pink)}
+.legend-dot.angry{background:var(--red)}
+.legend-dot.partial{background:var(--gold)}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:2px}
+.cal-weekdays span{font-size:.62rem;color:var(--text-dim);opacity:.45;padding:3px 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.cal-grid .day-cell{aspect-ratio:1;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.7rem;color:#c0b0c0;transition:all .2s;cursor:pointer;min-height:34px}
+.cal-grid .day-cell:hover{background:rgba(255,255,255,.06)}
+.cal-grid .day-cell.empty{pointer-events:none}
+.cal-grid .day-cell.today{outline:2px solid rgba(255,255,255,.3);outline-offset:1px;font-weight:700;color:#fff}
+.cal-grid .day-cell.happy{background:rgba(255,107,157,.2);color:var(--pink-light)}
+.cal-grid .day-cell.angry{background:rgba(255,71,87,.2);color:#ff8088}
+.cal-grid .day-cell.partial{background:rgba(240,192,96,.12);color:var(--gold)}
+.cal-grid .day-cell .day-icon{font-size:.5rem;line-height:1}
+.cal-grid .day-cell .day-num{font-size:.68rem;line-height:1}
+.cal-grid .day-cell.anniversary{box-shadow:inset 0 0 0 1.5px rgba(255,215,0,.35)}
+.month-stats{display:flex;justify-content:space-around;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);font-size:.68rem;color:var(--text-dim)}
+.month-stats .stat{text-align:center}
+.month-stats .stat-val{font-size:1rem;font-weight:700}
+.month-stats .stat-val.good{color:var(--pink-light)}
+.month-stats .stat-val.bad{color:#ff8088}
+
+/* Edit Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:250;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{background:#1e1018;border:1px solid rgba(255,255,255,.12);border-radius:var(--radius);padding:22px 20px;width:min(400px,90vw);max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:scaleIn .25s cubic-bezier(.68,-.6,.32,1.6)}
+@keyframes scaleIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.modal h3{text-align:center;font-size:1rem;color:#d0c0d0;margin-bottom:14px}
+.modal .field{margin-bottom:12px}
+.modal .field label{display:block;font-size:.75rem;color:var(--text-dim);margin-bottom:4px}
+.modal .field textarea{width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--text);font-size:.85rem;font-family:inherit;resize:vertical;min-height:60px;outline:none}
+.modal .field textarea:focus{border-color:var(--pink)}
+.modal .mood-toggle{display:flex;gap:8px}
+.modal .mood-toggle button{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text-dim);font-size:.82rem;cursor:pointer;font-family:inherit}
+.modal .mood-toggle button.sel-happy{background:rgba(255,107,157,.2);border-color:rgba(255,107,157,.4);color:var(--pink-light)}
+.modal .mood-toggle button.sel-angry{background:rgba(255,71,87,.2);border-color:rgba(255,71,87,.4);color:#ff8088}
+.modal .img-preview{width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-top:6px;display:none}
+.modal .img-actions{display:flex;gap:8px;margin-top:6px}
+.modal .img-actions button{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text-dim);font-size:.78rem;cursor:pointer;font-family:inherit}
+.modal .img-actions .btn-del-img{color:#ff8088;border-color:rgba(255,71,87,.3)}
+.modal .partner-section{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);font-size:.75rem;color:var(--text-dim)}
+.modal .partner-section .partner-note{margin-top:4px;padding:8px 10px;background:rgba(255,255,255,.03);border-radius:6px;font-size:.72rem;color:var(--text-dim);max-height:80px;overflow-y:auto;white-space:pre-wrap}
+.modal .partner-section img{max-width:100%;max-height:120px;border-radius:6px;margin-top:4px}
+.modal .modal-actions{display:flex;gap:8px;margin-top:16px}
+.modal .modal-actions button{flex:1;padding:10px;border-radius:10px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;border:1px solid rgba(255,255,255,.12)}
+.modal .btn-save{background:linear-gradient(135deg,var(--pink),var(--rose));color:#fff;border:none}
+.modal .btn-save:hover{opacity:.9}
+.modal .btn-close{background:transparent;color:var(--text-dim)}
+.modal .btn-delete{background:transparent;color:#ff8088;border-color:rgba(255,71,87,.3)}
+.upload-hint{font-size:.7rem;color:var(--text-dim);opacity:.5;margin-top:4px}
+
+.quote{text-align:center;font-size:.8rem;color:var(--text-dim);opacity:.65;font-style:italic;transition:opacity .5s}
+.footer-links{text-align:center;margin-top:12px;font-size:.68rem;color:var(--text-dim);opacity:.3}
+.footer-links a{color:inherit;cursor:pointer;text-decoration:underline}
+
+@media(max-width:400px){
+  .app{padding:16px 10px 12px}
+  .streak-card .streak-number{font-size:3.2rem}
+  .streak-card.angry .streak-number{font-size:1.6rem}
+  .action-row{flex-direction:column}
+  .btn-angry{flex:1}
+  .partner-row{gap:6px}
+  .cal-grid .day-cell{border-radius:5px;font-size:.62rem;min-height:28px}
+}
+</style>
+</head>
+<body>
+
+<div class="hearts-bg" id="heartsBg"></div>
+<div class="toast" id="toast"></div>
+<div class="celebrate-overlay" id="celebrateOverlay"></div>
+
+<!-- ==================== AUTH PAGE ==================== -->
+<div class="auth-container" id="authPage">
+  <div class="auth-icon">💕</div>
+  <h2 id="authTitle">不生气打卡</h2>
+
+  <!-- Mode: login / signup / forgot-step1 / forgot-step2 -->
+  <div id="authFormLogin">
+    <div class="form-group">
+      <label>邮箱</label>
+      <input type="email" id="loginEmail" placeholder="your@email.com">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPassword" placeholder="输入密码">
+    </div>
+    <div class="lockout-msg" id="lockoutMsg">
+      ⏳ 输错次数过多，请 <span class="countdown" id="countdownText">60</span> 秒后再试
+    </div>
+    <div class="auth-error" id="loginError"></div>
+    <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">登 录</button>
+    <div class="auth-switch">
+      <span>还没有账号？</span> <a onclick="showSignup()">去注册</a>
+      <br><a onclick="showForgot()" style="font-size:.72rem;opacity:.6;">忘记密码？</a>
+    </div>
+  </div>
+
+  <div id="authFormSignup" style="display:none;">
+    <div class="form-group">
+      <label>昵称</label>
+      <input type="text" id="signupNick" placeholder="你的昵称" maxlength="20">
+    </div>
+    <div class="form-group">
+      <label>邮箱</label>
+      <input type="email" id="signupEmail" placeholder="your@email.com">
+    </div>
+    <div class="form-group">
+      <label>密码（至少6位）</label>
+      <input type="password" id="signupPassword" placeholder="设置密码">
+    </div>
+    <div class="form-group">
+      <label>密保问题</label>
+      <select id="signupQuestion">
+        <option value="">-- 选择密保问题 --</option>
+        <option value="你第一只宠物叫什么？">你第一只宠物叫什么？</option>
+        <option value="你的出生城市是？">你的出生城市是？</option>
+        <option value="你妈妈的名字是？">你妈妈的名字是？</option>
+        <option value="你最喜欢的食物是？">你最喜欢的食物是？</option>
+        <option value="你小学班主任叫什么？">你小学班主任叫什么？</option>
+        <option value="custom">✏️ 自定义问题</option>
+      </select>
+    </div>
+    <div class="form-group" id="customQGroup" style="display:none;">
+      <label>输入你的问题</label>
+      <input type="text" id="signupCustomQ" placeholder="你的自定义问题" maxlength="50">
+    </div>
+    <div class="form-group">
+      <label>密保答案</label>
+      <input type="text" id="signupAnswer" placeholder="输入答案（牢记！找回密码用）">
+    </div>
+    <div class="auth-error" id="signupError"></div>
+    <button class="btn btn-primary" id="signupBtn" onclick="doSignup()">注 册</button>
+    <div class="auth-switch">
+      <span>已有账号？</span> <a onclick="showLogin()">去登录</a>
+    </div>
+  </div>
+
+  <!-- Forgot password -->
+  <div id="authFormForgot" style="display:none;">
+    <div class="step-indicator">
+      <div class="step active" id="step1"></div>
+      <div class="step" id="step2"></div>
+    </div>
+    <!-- Step 1: enter email -->
+    <div id="forgotStep1">
+      <div class="form-group">
+        <label>输入你的注册邮箱</label>
+        <input type="email" id="forgotEmail" placeholder="your@email.com">
+      </div>
+      <div class="auth-error" id="forgotError1"></div>
+      <button class="btn btn-primary" onclick="forgotStep1()">下一步</button>
+    </div>
+    <!-- Step 2: answer + new password -->
+    <div id="forgotStep2" style="display:none;">
+      <div class="form-group">
+        <label>密保问题</label>
+        <input type="text" id="forgotQuestion" readonly style="opacity:.7;">
+      </div>
+      <div class="form-group">
+        <label>你的答案</label>
+        <input type="text" id="forgotAnswer" placeholder="输入密保答案">
+      </div>
+      <div class="form-group">
+        <label>新密码（至少6位）</label>
+        <input type="password" id="forgotNewPassword" placeholder="设置新密码">
+      </div>
+      <div class="auth-error" id="forgotError2"></div>
+      <div class="auth-success" id="forgotSuccess"></div>
+      <button class="btn btn-primary" id="forgotBtn" onclick="forgotStep2()">重置密码</button>
+    </div>
+    <div class="auth-switch">
+      <a onclick="showLogin()">← 返回登录</a>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MAIN APP ==================== -->
+<div class="app" id="appPage">
+  <div class="header">
+    <div class="icon-row" id="headerIcon">💕</div>
+    <h1>不生气打卡</h1>
+    <div class="user-bar">
+      <span id="userNameDisplay" style="cursor:pointer;border-bottom:1px dashed rgba(255,255,255,.2);" onclick="editNickname()" title="点击修改昵称">👤</span>
+      <span class="logout-link" onclick="handleLogout()">退出登录</span>
+    </div>
+  </div>
+
+  <div class="streak-card" id="streakCard">
+    <div class="streak-number" id="streakNumber">0</div>
+    <div class="streak-label" id="streakLabel">天没有生气了 ✨</div>
+    <div class="highest">🏆 最高纪录 <span id="highestStreak">0</span> 天</div>
+  </div>
+
+  <!-- Security question alert -->
+  <div class="sec-alert" id="secAlert">
+    <span>⚠️ 你还未设置密保问题，忘记密码将无法找回</span>
+    <button class="sec-btn" onclick="showSecSetup()">立即设置</button>
+  </div>
+  <div class="sec-setup-form" id="secSetupForm">
+    <div class="calendar-card" style="margin-bottom:14px;">
+      <div class="form-group">
+        <label>密保问题</label>
+        <select id="secQuestion">
+          <option value="">-- 选择 --</option>
+          <option value="你第一只宠物叫什么？">你第一只宠物叫什么？</option>
+          <option value="你的出生城市是？">你的出生城市是？</option>
+          <option value="你妈妈的名字是？">你妈妈的名字是？</option>
+          <option value="你最喜欢的食物是？">你最喜欢的食物是？</option>
+          <option value="custom">✏️ 自定义</option>
+        </select>
+      </div>
+      <div class="form-group" id="secCustomQGroup" style="display:none;">
+        <label>自定义问题</label>
+        <input type="text" id="secCustomQ" placeholder="输入你的问题" maxlength="50">
+      </div>
+      <div class="form-group">
+        <label>答案（牢记！）</label>
+        <input type="text" id="secAnswer" placeholder="输入密保答案">
+      </div>
+      <button class="btn btn-primary" onclick="saveSecurity()">💾 保存密保</button>
+    </div>
+  </div>
+
+  <div class="partner-row" id="partnerRow"></div>
+
+  <!-- Bind partner (when no partner) -->
+  <div class="bind-card" id="bindCard" style="display:none;">
+    <span>💔 还没有绑定伴侣</span>
+    <div class="bind-form" id="bindForm">
+      <div style="width:100%;text-align:left;">
+        <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">你的配对码（发给对方）</div>
+        <div class="pair-code-display" id="myPairCode">---</div>
+      </div>
+      <div style="width:100%;margin-top:10px;text-align:left;">
+        <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">输入对方的配对码</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="bindCode" placeholder="6位配对码" maxlength="6" style="flex:1;text-transform:uppercase;letter-spacing:2px;text-align:center;">
+          <button class="sec-btn" onclick="bindPartner()">绑定</button>
+        </div>
+      </div>
+    </div>
+    <div class="bind-waiting" id="bindWaiting" style="display:none;">
+      <span>⏳ 等待对方确认...</span>
+      <button class="sec-btn" onclick="cancelBind()">取消</button>
+    </div>
+    <div class="bind-incoming" id="bindIncoming" style="display:none;">
+      <span>📩 <strong id="bindRequester"></strong> 想和你绑定伴侣</span>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button class="sec-btn" onclick="acceptBind()">✅ 接受</button>
+        <button class="sec-btn" onclick="rejectBind()" style="border-color:rgba(255,71,87,.3);color:#ff8088;">拒绝</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-row" id="actionRow">
+    <button class="action-btn btn-happy" id="btnHappy" onclick="doCheckin('happy')">💕 今天和睦</button>
+    <button class="action-btn btn-angry" id="btnAngry" onclick="doCheckin('angry')">😤 生气了</button>
+  </div>
+  <div class="action-row" id="doneMsg" style="display:none;"></div>
+
+  <div class="calendar-card">
+    <div class="cal-header">
+      <span class="cal-title" id="calTitle">📅 本月</span>
+      <div class="cal-nav">
+        <button onclick="navMonth(-1)">◀</button>
+        <button class="active" onclick="navToday()">本月</button>
+        <button onclick="navMonth(1)">▶</button>
+      </div>
+    </div>
+    <div class="cal-legend">
+      <span><i class="legend-dot happy"></i>和睦</span>
+      <span><i class="legend-dot angry"></i>生气</span>
+      <span><i class="legend-dot partial"></i>待定</span>
+    </div>
+    <div class="cal-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="month-stats" id="monthStats"></div>
+  </div>
+
+  <p class="quote" id="quote">爱是恒久忍耐，又有恩慈 💗</p>
+  <div class="footer-links"><a onclick="if(confirm('确定删除账号及所有数据？'))deleteAccount();">删除账号</a></div>
+</div>
+
+<!-- ==================== EDIT MODAL ==================== -->
+<div class="modal-overlay" id="editModal" style="display:none;" onclick="if(event.target===this)closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="modalTitle">编辑记录</h3>
+    <div class="field">
+      <label>状态</label>
+      <div class="mood-toggle">
+        <button id="moodHappy" onclick="setModalMood('happy')">💕 和睦</button>
+        <button id="moodAngry" onclick="setModalMood('angry')">😤 生气</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>文字</label>
+      <textarea id="modalNote" placeholder="写下想说的话..."></textarea>
+    </div>
+    <div class="field">
+      <label>图片</label>
+      <input type="file" id="modalImageInput" accept="image/*" style="display:none" onchange="handleImageSelect(event)">
+      <div class="img-actions">
+        <button onclick="document.getElementById('modalImageInput').click()">📷 上传</button>
+        <button class="btn-del-img" id="btnDelImg" onclick="deleteImage()" style="display:none;">🗑 删除</button>
+      </div>
+      <img class="img-preview" id="imgPreview">
+      <div class="upload-hint">最大 1MB，超出自动压缩</div>
+    </div>
+    <div class="partner-section" id="partnerSection" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn-delete" id="btnDeleteRecord" onclick="deleteRecord()">删除</button>
+      <button class="btn-close" onclick="closeModal()">取消</button>
+      <button class="btn-save" id="btnSave" onclick="saveRecord()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+const SUPABASE_URL = 'https://wnyyceewbrywvohsdaga.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_tYE1oRaE5SJgFzJVsvbfpw_GP96MNtQ';
+const EDGE_FN_URL = SUPABASE_URL + '/functions/v1/reset-password';
+
+let supabase, currentUser, allProfiles = {}, allCheckins = [];
+let calYear, calMonth, modalDate = '', modalMood = 'happy', modalImageFile, modalExistingImageUrl = '';
+let authMode = 'login'; // 'login' | 'signup' | 'forgot'
+
+try { supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+catch(e) { document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a0a14;color:#ff6b9d;font-size:1.2rem;text-align:center;padding:20px;font-family:sans-serif;">😢 初始化失败<br><small style="color:#b8a0b0;">请刷新重试</small></div>'; throw e; }
+
+// ==================== LOGIN ATTEMPT LIMITER ====================
+const LOCKOUT_MS = 60_000, MAX_ATTEMPTS = 10;
+function getAttempts() { try { return JSON.parse(localStorage.getItem('login_attempts')||'{"c":0,"t":0}'); } catch { return {c:0,t:0}; } }
+function saveAttempts(a) { localStorage.setItem('login_attempts', JSON.stringify(a)); }
+function isLockedOut() {
+  const a = getAttempts();
+  if (a.c >= MAX_ATTEMPTS && Date.now() - a.t < LOCKOUT_MS) return Math.ceil((LOCKOUT_MS - (Date.now() - a.t)) / 1000);
+  return 0;
+}
+function resetAttempts() { saveAttempts({c:0,t:0}); hideLockout(); }
+function recordFailedAttempt() {
+  const a = getAttempts();
+  if (Date.now() - a.t > LOCKOUT_MS) { a.c = 0; }
+  a.c++; a.t = Date.now(); saveAttempts(a);
+  if (a.c >= MAX_ATTEMPTS) showLockout();
+}
+
+function showLockout() {
+  const sec = isLockedOut();
+  if (sec > 0) {
+    document.getElementById('lockoutMsg').classList.add('show');
+    document.getElementById('loginBtn').disabled = true;
+    document.getElementById('countdownText').textContent = sec;
+    const iv = setInterval(() => {
+      const s = isLockedOut();
+      if (s <= 0) { clearInterval(iv); hideLockout(); return; }
+      document.getElementById('countdownText').textContent = s;
+    }, 1000);
+  }
+}
+function hideLockout() {
+  document.getElementById('lockoutMsg').classList.remove('show');
+  document.getElementById('loginBtn').disabled = false;
+}
+
+// ==================== HELPERS ====================
+function todayStr() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function fmtDate(y,m,d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function sha256(str) { let hash=0; for(let i=0;i<str.length;i++){hash=((hash<<5)-hash)+str.charCodeAt(i);hash|=0;} return 'h'+Math.abs(hash).toString(36); }
+function showToast(msg,isErr){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(isErr?' err':'');t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);}
+function showLoading(el){el.disabled=true;el._o=el.innerHTML;el.innerHTML='<span class="spinner"></span>';}
+function hideLoading(el){el.disabled=false;if(el._o)el.innerHTML=el._o;}
+function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+// ==================== AUTH UI ====================
+function showLogin() {
+  authMode='login';
+  document.getElementById('authFormLogin').style.display='block';
+  document.getElementById('authFormSignup').style.display='none';
+  document.getElementById('authFormForgot').style.display='none';
+  document.getElementById('authTitle').textContent='不生气打卡';
+  document.getElementById('loginError').style.display='none';
+  document.getElementById('signupError').style.display='none';
+  document.getElementById('forgotError1').style.display='none';
+  document.getElementById('forgotError2').style.display='none';
+  document.getElementById('forgotSuccess').style.display='none';
+  showLockout();
+}
+function showSignup() {
+  authMode='signup';
+  document.getElementById('authFormLogin').style.display='none';
+  document.getElementById('authFormSignup').style.display='block';
+  document.getElementById('authFormForgot').style.display='none';
+  document.getElementById('authTitle').textContent='注册账号';
+  document.getElementById('signupError').style.display='none';
+  document.getElementById('signupQuestion').value='';
+  document.getElementById('customQGroup').style.display='none';
+}
+function showForgot() {
+  authMode='forgot';
+  document.getElementById('authFormLogin').style.display='none';
+  document.getElementById('authFormSignup').style.display='none';
+  document.getElementById('authFormForgot').style.display='block';
+  document.getElementById('authTitle').textContent='找回密码';
+  document.getElementById('forgotStep1').style.display='block';
+  document.getElementById('forgotStep2').style.display='none';
+  document.getElementById('forgotError1').style.display='none';
+  document.getElementById('forgotError2').style.display='none';
+  document.getElementById('forgotSuccess').style.display='none';
+  document.getElementById('step1').classList.add('active');
+  document.getElementById('step2').classList.remove('active');
+  document.getElementById('forgotEmail').value='';
+  document.getElementById('forgotAnswer').value='';
+  document.getElementById('forgotNewPassword').value='';
+}
+
+// Custom question toggle
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('signupQuestion').addEventListener('change', function() {
+    document.getElementById('customQGroup').style.display = this.value === 'custom' ? 'block' : 'none';
+  });
+  document.getElementById('loginPassword').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+  document.getElementById('signupPassword').addEventListener('keydown', e => { if(e.key==='Enter') doSignup(); });
+
+  // Security question setup in dashboard
+  const secQ = document.getElementById('secQuestion');
+  if (secQ) secQ.addEventListener('change', function() {
+    document.getElementById('secCustomQGroup').style.display = this.value === 'custom' ? 'block' : 'none';
+  });
+});
+
+// ==================== SECURITY QUESTION SETUP (in-app) ====================
+function showSecSetup() {
+  const form = document.getElementById('secSetupForm');
+  form.classList.toggle('show');
+}
+
+async function saveSecurity() {
+  const q = document.getElementById('secQuestion').value;
+  const customQ = document.getElementById('secCustomQ').value.trim();
+  const question = q === 'custom' ? customQ : q;
+  const answer = document.getElementById('secAnswer').value.trim();
+
+  if (!question) { showToast('请选择或输入密保问题', true); return; }
+  if (!answer) { showToast('请输入密保答案', true); return; }
+
+  const { error } = await supabase.from('profiles').update({
+    security_question: question,
+    security_answer_hash: sha256(answer.toLowerCase().trim())
+  }).eq('id', currentUser.id);
+
+  if (error) { showToast('保存失败: ' + error.message, true); return; }
+
+  document.getElementById('secAlert').classList.remove('show');
+  document.getElementById('secSetupForm').classList.remove('show');
+  showToast('密保已设置 ✅');
+}
+
+async function checkSecurityQuestion() {
+  if (!currentUser) return;
+  const { data } = await supabase.from('profiles').select('security_question').eq('id', currentUser.id).maybeSingle();
+  if (data && data.security_question) {
+    document.getElementById('secAlert').classList.remove('show');
+    document.getElementById('secSetupForm').classList.remove('show');
+  } else {
+    document.getElementById('secAlert').classList.add('show');
+  }
+}
+
+// ==================== AUTH ACTIONS ====================
+async function doLogin() {
+  const lockSec = isLockedOut();
+  if (lockSec > 0) { showLockout(); return; }
+
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+
+  if (!email || !password) { errEl.textContent='请输入邮箱和密码'; errEl.style.display='block'; return; }
+  if (password.length < 6) { errEl.textContent='密码至少6位'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('loginBtn');
+  showLoading(btn);
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    errEl.textContent = error.message === 'Invalid login credentials' ? '邮箱或密码错误' : error.message;
+    errEl.style.display = 'block';
+    hideLoading(btn);
+    recordFailedAttempt();
+  } else {
+    resetAttempts();
+    hideLoading(btn);
+    // onAuthStateChange handles the rest
+  }
+}
+
+async function doSignup() {
+  const nickname = document.getElementById('signupNick').value.trim() || '未命名';
+  const email = document.getElementById('signupEmail').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  let question = document.getElementById('signupQuestion').value;
+  if (question === 'custom') question = document.getElementById('signupCustomQ').value.trim();
+  const answer = document.getElementById('signupAnswer').value.trim();
+  const errEl = document.getElementById('signupError');
+  errEl.style.display = 'none';
+
+  if (!email || password.length < 6) { errEl.textContent='请填写有效邮箱和至少6位密码'; errEl.style.display='block'; return; }
+  if (!question) { errEl.textContent='请选择或输入密保问题'; errEl.style.display='block'; return; }
+  if (!answer) { errEl.textContent='请输入密保答案'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('signupBtn');
+  showLoading(btn);
+
+  const { data, error } = await supabase.auth.signUp({
+    email, password,
+    options: { data: { nickname } }
+  });
+
+  if (error) {
+    errEl.textContent = error.message; errEl.style.display = 'block'; hideLoading(btn);
+  } else if (data.user && data.user.identities && data.user.identities.length === 0) {
+    errEl.textContent = '该邮箱已被注册'; errEl.style.display = 'block'; hideLoading(btn);
+  } else {
+    // Trigger may create profile, but let's also explicitly update
+    // Wait a moment for the trigger
+    setTimeout(async () => {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        nickname,
+        email,
+        security_question: question,
+        security_answer_hash: sha256(answer.toLowerCase().trim())
+      });
+    }, 500);
+    showToast('注册成功！请登录');
+    hideLoading(btn);
+    showLogin();
+    document.getElementById('loginEmail').value = email;
+  }
+}
+
+async function forgotStep1() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  const errEl = document.getElementById('forgotError1');
+  errEl.style.display = 'none';
+
+  if (!email) { errEl.textContent='请输入邮箱'; errEl.style.display='block'; return; }
+
+  // Fetch security question
+  const { data: profiles } = await supabase.from('profiles').select('security_question').eq('email', email);
+  if (!profiles || profiles.length === 0 || !profiles[0].security_question) {
+    errEl.textContent = '该邮箱未注册或未设置密保问题'; errEl.style.display = 'block'; return;
+  }
+
+  document.getElementById('forgotQuestion').value = profiles[0].security_question;
+  document.getElementById('forgotStep1').style.display = 'none';
+  document.getElementById('forgotStep2').style.display = 'block';
+  document.getElementById('step1').classList.remove('active');
+  document.getElementById('step2').classList.add('active');
+  document.getElementById('forgotError2').style.display = 'none';
+  document.getElementById('forgotSuccess').style.display = 'none';
+}
+
+async function forgotStep2() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  const answer = document.getElementById('forgotAnswer').value.trim();
+  const newPassword = document.getElementById('forgotNewPassword').value;
+  const errEl = document.getElementById('forgotError2');
+  const successEl = document.getElementById('forgotSuccess');
+  errEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  if (!answer) { errEl.textContent='请输入密保答案'; errEl.style.display='block'; return; }
+  if (newPassword.length < 6) { errEl.textContent='新密码至少6位'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('forgotBtn');
+  showLoading(btn);
+
+  // Call Edge Function to reset password
+  try {
+    const res = await fetch(EDGE_FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, answer_hash: sha256(answer.toLowerCase().trim()), new_password: newPassword })
+    });
+    const result = await res.json();
+
+    if (result.error) {
+      errEl.textContent = result.error; errEl.style.display = 'block';
+    } else {
+      successEl.textContent = '密码重置成功！请用新密码登录。';
+      successEl.style.display = 'block';
+      document.getElementById('forgotStep2').style.display = 'none';
+      document.getElementById('loginEmail').value = email;
+    }
+  } catch(e) {
+    errEl.textContent = '网络错误，请重试'; errEl.style.display = 'block';
+  }
+  hideLoading(btn);
+}
+
+// ==================== NICKNAME ====================
+async function editNickname() {
+  const current = getUserNickname(currentUser.id);
+  const name = prompt('修改昵称：', current);
+  if (!name || name.trim() === '' || name.trim() === current) return;
+  const trimmed = name.trim();
+  const { error } = await supabase.from('profiles').update({ nickname: trimmed }).eq('id', currentUser.id);
+  if (error) { showToast('修改失败: ' + error.message, true); return; }
+  if (allProfiles[currentUser.id]) allProfiles[currentUser.id].nickname = trimmed;
+  document.getElementById('userNameDisplay').textContent = '👤 ' + trimmed;
+  renderAll();
+  showToast('昵称已更新 ✅');
+}
+
+// ==================== LOGOUT / DELETE ====================
+async function handleLogout() { await supabase.auth.signOut(); currentUser=null; allCheckins=[]; allProfiles={}; showAuthPage(); }
+async function deleteAccount() {
+  if (!currentUser) return;
+  await supabase.from('checkins').delete().eq('user_id', currentUser.id);
+  const myChecks = allCheckins.filter(c=>c.user_id===currentUser.id&&c.image_url);
+  for(const c of myChecks){try{const p=c.image_url.split('/').pop();if(p)await supabase.storage.from('checkin-images').remove([p]);}catch{}}
+  await supabase.from('profiles').delete().eq('id', currentUser.id);
+  await supabase.auth.signOut();
+  currentUser=null;allCheckins=[];allProfiles={};showAuthPage();showToast('账号已删除');
+}
+
+function showAuthPage() {
+  document.getElementById('authPage').style.display='block';
+  document.getElementById('appPage').classList.remove('active');
+  document.getElementById('appPage').style.display='none';
+}
+function showAppPage() {
+  document.getElementById('authPage').style.display='none';
+  document.getElementById('appPage').classList.add('active');
+  document.getElementById('appPage').style.display='block';
+  document.getElementById('userNameDisplay').textContent='👤 '+getUserNickname(currentUser.id);
+}
+
+// ==================== DATA ====================
+async function loadAllData() {
+  const [{ data: checkins }, { data: profiles }] = await Promise.all([
+    supabase.from('checkins').select('*').order('date',{ascending:true}),
+    supabase.from('profiles').select('*')
+  ]);
+  allCheckins = checkins || [];
+  allProfiles = {};
+  if (profiles) for(const p of profiles) allProfiles[p.id] = { nickname: p.nickname, email: p.email, partner_id: p.partner_id, pair_code: p.pair_code };
+
+  // Ensure current user in profiles
+  if (currentUser && !allProfiles[currentUser.id]) {
+    const meta = currentUser.user_metadata || {};
+    await supabase.from('profiles').upsert({
+      id: currentUser.id, nickname: meta.nickname || currentUser.email?.split('@')[0], email: currentUser.email
+    });
+    allProfiles[currentUser.id] = { nickname: meta.nickname || currentUser.email?.split('@')[0], email: currentUser.email };
+  }
+}
+
+function getUserNickname(uid) { return (allProfiles[uid]&&allProfiles[uid].nickname) || (uid===currentUser?.id ? currentUser.email?.split('@')[0] : '伴侣') || '伴侣'; }
+function getPartner() {
+  if (!currentUser || !allProfiles[currentUser.id]) return null;
+  const pid = allProfiles[currentUser.id].partner_id;
+  if (pid && allProfiles[pid]) return { id: pid, ...allProfiles[pid] };
+  return null;
+}
+function isPartnerBound() { return !!getPartner(); }
+
+function getMyProfile() { return currentUser ? allProfiles[currentUser.id] : null; }
+
+function genPairCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function ensurePairCode() {
+  if (!currentUser) return;
+  const myP = getMyProfile();
+  if (myP && myP.pair_code) {
+    document.getElementById('myPairCode').textContent = myP.pair_code;
+    return myP.pair_code;
+  }
+  // Generate unique code
+  let code, attempts = 0;
+  while (attempts < 20) {
+    code = genPairCode();
+    const { data } = await supabase.from('profiles').select('id').eq('pair_code', code);
+    if (!data || data.length === 0) break;
+    attempts++;
+  }
+  await supabase.from('profiles').update({ pair_code: code }).eq('id', currentUser.id);
+  if (allProfiles[currentUser.id]) allProfiles[currentUser.id].pair_code = code;
+  document.getElementById('myPairCode').textContent = code;
+  return code;
+}
+
+function renderBindCard() {
+  const card = document.getElementById('bindCard');
+  const form = document.getElementById('bindForm');
+  const waiting = document.getElementById('bindWaiting');
+  const incoming = document.getElementById('bindIncoming');
+
+  if (!currentUser) return;
+
+  const myP = getMyProfile();
+  const partner = getPartner();
+
+  if (partner) {
+    card.style.display = 'none';
+    return;
+  }
+
+  card.style.display = 'block';
+  ensurePairCode();
+
+  // Check if I have a pending outgoing request
+  if (myP && myP.partner_id) {
+    form.style.display = 'none';
+    waiting.style.display = 'block';
+    incoming.style.display = 'none';
+    return;
+  }
+
+  // Check if someone wants to bind with me
+  const requester = Object.entries(allProfiles).find(([id, p]) =>
+    p.partner_id === currentUser.id && id !== currentUser.id
+  );
+
+  if (requester) {
+    form.style.display = 'none';
+    waiting.style.display = 'none';
+    incoming.style.display = 'block';
+    document.getElementById('bindRequester').textContent = requester[1].nickname || requester[1].email;
+    incoming.dataset.requesterId = requester[0];
+    return;
+  }
+
+  // No requests, show connect form with pair codes
+  form.style.display = 'block';
+  waiting.style.display = 'none';
+  incoming.style.display = 'none';
+  document.getElementById('bindCode').value = '';
+}
+
+async function bindPartner() {
+  const code = document.getElementById('bindCode').value.trim().toUpperCase();
+  if (!code || code.length !== 6) { showToast('请输入6位配对码', true); return; }
+
+  showToast('正在查找配对码...');
+
+  // Find partner by pair code
+  const { data: profiles, error: findErr } = await supabase.from('profiles').select('id,nickname').eq('pair_code', code);
+
+  if (findErr) { showToast('查询失败: ' + findErr.message, true); return; }
+
+  if (!profiles || profiles.length === 0) {
+    showToast('未找到该配对码！请确认：\n1. 对方已刷新页面生成配对码\n2. 输入正确（不区分大小写）', true); return;
+  }
+  const partnerId = profiles[0].id;
+  if (partnerId === currentUser.id) { showToast('不能绑定自己哦~', true); return; }
+
+  // Set my partner_id to send request
+  const { error: updateErr } = await supabase.from('profiles').update({ partner_id: partnerId }).eq('id', currentUser.id);
+  if (updateErr) { showToast('绑定失败: ' + updateErr.message, true); return; }
+
+  allProfiles[currentUser.id].partner_id = partnerId;
+  await loadAllData();
+  renderBindCard();
+  renderPartnerRow();
+  showToast('已发送绑定请求，等 ' + (profiles[0].nickname || '对方') + ' 确认 💌');
+}
+
+async function acceptBind() {
+  const incoming = document.getElementById('bindIncoming');
+  const requesterId = incoming.dataset.requesterId;
+  if (!requesterId) return;
+
+  // Set my partner_id to requester → both matched
+  const { error } = await supabase.from('profiles').update({ partner_id: requesterId }).eq('id', currentUser.id);
+  if (error) { showToast('绑定失败: ' + error.message, true); return; }
+
+  await loadAllData();
+  renderBindCard();
+  renderPartnerRow();
+  renderAll();
+  showToast('伴侣绑定成功！💕');
+}
+
+async function rejectBind() {
+  const incoming = document.getElementById('bindIncoming');
+  const requesterId = incoming.dataset.requesterId;
+  if (!requesterId) return;
+
+  // Clear the requester's partner_id
+  await supabase.from('profiles').update({ partner_id: null }).eq('id', requesterId);
+
+  await loadAllData();
+  renderBindCard();
+  renderPartnerRow();
+  showToast('已拒绝');
+}
+
+async function cancelBind() {
+  // Clear my partner_id
+  await supabase.from('profiles').update({ partner_id: null }).eq('id', currentUser.id);
+  allProfiles[currentUser.id].partner_id = null;
+  document.getElementById('bindEmail').value = '';
+  renderBindCard();
+  showToast('已取消');
+}
+
+function renderPartnerRow() {
+  const today = todayStr();
+  const partner = getPartner();
+
+  if (!partner) {
+    document.getElementById('partnerRow').innerHTML = `
+      <div class="partner-badge you"><div class="p-name">${getUserNickname(currentUser.id)}（你）</div><div class="p-status">等待绑定伴侣...</div></div>
+      <div class="partner-badge"><div class="p-name">伴侣</div><div class="p-status">未绑定</div></div>`;
+    return;
+  }
+
+  const mc = getMyCheckin(today);
+  const pc = getUserCheckin(partner.id, today);
+  document.getElementById('partnerRow').innerHTML = `
+    <div class="partner-badge you"><div class="p-name">${getUserNickname(currentUser.id)}（你）</div><div class="p-status ${mc?'done':''}">${mc?(mc.mood==='happy'?'✅ 和睦':'😤 生气'):'⏳ 未打卡'}</div></div>
+    <div class="partner-badge"><div class="p-name">${getUserNickname(partner.id)}</div><div class="p-status ${pc?'done':''}">${pc?(pc.mood==='happy'?'✅ 和睦':'😤 生气'):'⏳ 未打卡'}</div></div>`;
+}
+function getUserCheckin(uid,date) { return allCheckins.find(c=>c.user_id===uid&&c.date===date)||null; }
+function getMyCheckin(date) { return getUserCheckin(currentUser.id, date); }
+function getCombinedStatus(date) {
+  const me=getMyCheckin(date), partner=getPartner(), them=partner?getUserCheckin(partner.id,date):null;
+  if(!me&&!them)return'none'; if((me&&me.mood==='angry')||(them&&them.mood==='angry'))return'angry';
+  if(me&&me.mood==='happy'&&them&&them.mood==='happy')return'happy'; return'partial';
+}
+
+function calcStreak() {
+  let streak=0; const d=new Date();
+  while(true){ const ds=fmtDate(d.getFullYear(),d.getMonth(),d.getDate()); if(getCombinedStatus(ds)==='happy'){streak++;d.setDate(d.getDate()-1);}else break; }
+  return streak;
+}
+function calcHighestStreak() {
+  const happy=new Set(); const partner=getPartner();
+  for(const c of allCheckins){ if(c.mood==='happy'&&partner&&allCheckins.find(x=>x.user_id===partner.id&&x.date===c.date&&x.mood==='happy'))happy.add(c.date); }
+  const sorted=[...happy].sort(); if(!sorted.length)return 0;
+  let max=0,cur=0,prev=null;
+  for(const ds of sorted){ if(!prev){cur=1;}else{const pd=new Date(prev);pd.setDate(pd.getDate()+1);if(pd.toISOString().slice(0,10)===ds)cur++;else cur=1;} if(cur>max)max=cur; prev=ds; }
+  return max;
+}
+
+// ==================== CHECKIN ====================
+async function doCheckin(mood) {
+  if(!currentUser)return; const today=todayStr(); if(getMyCheckin(today)){showToast('今天已经记录过了~');return;}
+  const btn=mood==='happy'?document.getElementById('btnHappy'):document.getElementById('btnAngry'); showLoading(btn);
+  const {data,error}=await supabase.from('checkins').insert({user_id:currentUser.id,date:today,mood}).select().single();
+  hideLoading(btn);
+  if(error){if(error.code==='23505'){showToast('今天已经记录过了~');return;}showToast('操作失败:'+error.message,true);return;}
+  allCheckins.push(data); await loadAllData(); renderAll();
+  if(mood==='happy'){ const s=getCombinedStatus(today); if(s==='happy'){celebrate();showToast('🎉 两人都和睦！连续'+calcStreak()+'天！');}else showToast('已打卡，等伴侣也打卡哦~💌'); }
+  else showToast('已记录。抱抱，明天重新开始 💪');
+}
+
+// ==================== IMAGE UPLOAD ====================
+async function uploadImage(file) {
+  const ext=file.name.split('.').pop(), path=`${currentUser.id}/${Date.now()}.${ext}`;
+  const {error}=await supabase.storage.from('checkin-images').upload(path,file,{upsert:true,contentType:file.type});
+  if(error)throw error;
+  const {data}=supabase.storage.from('checkin-images').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// ==================== EDIT MODAL ====================
+function openModal(date){
+  modalDate=date;modalImageFile=null;modalExistingImageUrl='';
+  document.getElementById('modalImageInput').value='';document.getElementById('imgPreview').style.display='none';
+  document.getElementById('imgPreview').src='';document.getElementById('btnDelImg').style.display='none';
+  document.getElementById('partnerSection').style.display='none';
+  const my=getMyCheckin(date); modalMood=my?my.mood:'happy'; setModalMood(modalMood);
+  document.getElementById('modalNote').value=my?(my.note||''):'';
+  if(my&&my.image_url){modalExistingImageUrl=my.image_url;document.getElementById('imgPreview').src=my.image_url;document.getElementById('imgPreview').style.display='block';document.getElementById('btnDelImg').style.display='inline-block';}
+  const partner=getPartner();
+  if(partner){const pc=getUserCheckin(partner.id,date); if(pc){const sec=document.getElementById('partnerSection');sec.style.display='block';let h=`<strong>${getUserNickname(partner.id)}</strong>：${pc.mood==='happy'?'💕和睦':'😤生气'}`;if(pc.note)h+=`<div class="partner-note">${escapeHtml(pc.note)}</div>`;if(pc.image_url)h+=`<img src="${pc.image_url}" style="max-width:100%;max-height:120px;border-radius:6px;margin-top:4px;">`;sec.innerHTML=h;}}
+  document.getElementById('modalTitle').textContent=`📝 ${date}`;document.getElementById('editModal').style.display='flex';
+}
+function closeModal(){document.getElementById('editModal').style.display='none';}
+function setModalMood(m){modalMood=m;document.getElementById('moodHappy').className=m==='happy'?'sel-happy':'';document.getElementById('moodAngry').className=m==='angry'?'sel-angry':'';}
+async function handleImageSelect(e){
+  const f=e.target.files[0];if(!f)return;
+  modalImageFile = await compressImage(f);
+  const r=new FileReader();r.onload=ev=>{const img=document.getElementById('imgPreview');img.src=ev.target.result;img.style.display='block';document.getElementById('btnDelImg').style.display='inline-block';};r.readAsDataURL(modalImageFile);
+}
+
+async function compressImage(file, maxMB = 1) {
+  const maxBytes = maxMB * 1024 * 1024;
+  if (file.size <= maxBytes) return file;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      let { width, height } = img;
+
+      // Scale down large images
+      const maxDim = 1920;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else { width = Math.round(width * maxDim / height); height = maxDim; }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Try compressing with decreasing quality
+      let quality = 0.85;
+      const tryCompress = () => {
+        canvas.toBlob((blob) => {
+          if (!blob) { resolve(file); return; }
+          if (blob.size <= maxBytes || quality <= 0.3) {
+            const compressed = new File([blob], file.name, { type: 'image/jpeg' });
+            resolve(compressed);
+          } else {
+            quality -= 0.15;
+            tryCompress();
+          }
+        }, 'image/jpeg', quality);
+      };
+      tryCompress();
+    };
+    img.src = url;
+  });
+}
+
+async function saveRecord(){
+  const btn=document.getElementById('btnSave');showLoading(btn);
+  try{let url=modalExistingImageUrl;if(modalImageFile)url=await uploadImage(modalImageFile);
+  const note=document.getElementById('modalNote').value.trim(),existing=getMyCheckin(modalDate);
+  if(existing){await supabase.from('checkins').update({mood:modalMood,note,image_url:url}).eq('id',existing.id);}
+  else{await supabase.from('checkins').insert({user_id:currentUser.id,date:modalDate,mood:modalMood,note,image_url:url});}
+  await loadAllData();closeModal();renderAll();showToast('已保存 ✅');}catch(e){showToast('保存失败:'+e.message,true);}hideLoading(btn);}
+
+async function deleteRecord(){
+  if(!confirm('确定删除？'))return;const existing=getMyCheckin(modalDate);if(!existing){closeModal();return;}
+  await supabase.from('checkins').delete().eq('id',existing.id);
+  if(existing.image_url){try{const p=existing.image_url.split('/').pop();if(p)await supabase.storage.from('checkin-images').remove([p]);}catch{}}
+  await loadAllData();closeModal();renderAll();showToast('已删除');
+}
+async function deleteImage(){
+  if(!confirm('删除图片？'))return;
+  if(modalExistingImageUrl){try{const p=modalExistingImageUrl.split('/').pop();if(p)await supabase.storage.from('checkin-images').remove([p]);}catch{}modalExistingImageUrl='';
+  const ex=getMyCheckin(modalDate);if(ex)await supabase.from('checkins').update({image_url:''}).eq('id',ex.id);await loadAllData();}
+  modalImageFile=null;document.getElementById('imgPreview').style.display='none';document.getElementById('imgPreview').src='';document.getElementById('btnDelImg').style.display='none';document.getElementById('modalImageInput').value='';showToast('图片已删除');
+}
+
+// ==================== RENDER ====================
+function renderStreakAndActions(){
+  const today=todayStr(),combined=getCombinedStatus(today),my=getMyCheckin(today),streak=calcStreak(),highest=Math.max(calcHighestStreak(),streak);
+  const card=document.getElementById('streakCard'),num=document.getElementById('streakNumber'),label=document.getElementById('streakLabel');
+  if(combined==='angry'){card.classList.add('angry');num.textContent='😞';label.textContent='今天生气了，明天重新开始';}
+  else{card.classList.remove('angry');num.textContent=streak;label.textContent='天没有生气了 ✨';num.classList.remove('pulse');void num.offsetWidth;if(streak>0)num.classList.add('pulse');}
+  document.getElementById('highestStreak').textContent=highest;
+  const isAnniversary = new Date().getDate() === 9;
+  document.getElementById('headerIcon').textContent = combined==='angry' ? '💔' : isAnniversary ? '💍' : '💕';
+  const ar=document.getElementById('actionRow'),dm=document.getElementById('doneMsg');
+  if(my){ar.style.display='none';dm.style.display='flex';dm.innerHTML=`<button class="action-btn btn-happy done" style="flex:1;cursor:default;">${my.mood==='happy'?'💕 今天已打卡：和睦':'😤 今天已记录：生气了'}</button>`;}
+  else if(combined==='happy'){ar.style.display='none';dm.style.display='flex';dm.innerHTML='<button class="action-btn btn-happy done" style="flex:1;cursor:default;">💕 今天两人都和睦！</button>';}
+  else{ar.style.display='flex';dm.style.display='none';document.getElementById('btnHappy').disabled=false;document.getElementById('btnAngry').disabled=false;}
+}
+
+function renderCalendar(){
+  const y=calYear,m=calMonth,today=todayStr(),fd=new Date(y,m,1),ld=new Date(y,m+1,0),startDow=fd.getDay(),dim=ld.getDate(),grid=document.getElementById('calGrid');
+  grid.innerHTML='';
+  for(let i=0;i<startDow;i++){const c=document.createElement('div');c.className='day-cell empty';grid.appendChild(c);}
+  for(let d=1;d<=dim;d++){const ds=fmtDate(y,m,d),cell=document.createElement('div');cell.className='day-cell';const s=getCombinedStatus(ds);
+    if(s==='happy'){cell.classList.add('happy');cell.innerHTML=`<span class="day-num">${d}</span><span class="day-icon">💕</span>`;}
+    else if(s==='angry'){cell.classList.add('angry');cell.innerHTML=`<span class="day-num">${d}</span><span class="day-icon">💔</span>`;}
+    else if(s==='partial'){cell.classList.add('partial');cell.innerHTML=`<span class="day-num">${d}</span><span class="day-icon">◐</span>`;}
+    else cell.innerHTML=`<span class="day-num">${d}</span>`;
+    // 每月9号纪念日
+    if(d===9){cell.classList.add('anniversary');cell.innerHTML+=`<span class="day-icon">💍</span>`;}
+    if(ds===today)cell.classList.add('today');cell.title=ds+(d===9?' 💍纪念日':'')+' - 点击编辑';cell.addEventListener('click',()=>openModal(ds));grid.appendChild(cell);}
+  document.getElementById('calTitle').textContent=`📅 ${y}年${m+1}月`;
+  // 纪念日特殊标题
+  if(new Date().getDate()===9){document.getElementById('calTitle').textContent=`💍 ${y}年${m+1}月 · 纪念日快乐！`;}
+  let hap=0,ang=0;
+  for(let d=1;d<=dim;d++){const s=getCombinedStatus(fmtDate(y,m,d));if(s==='happy')hap++;else if(s==='angry')ang++;}
+  const total=hap+ang,passed=Math.min(dim,new Date().getDate()),remain=Math.max(0,passed-total);
+  document.getElementById('monthStats').innerHTML=`<div class="stat"><span class="stat-val good">${hap}</span> 和睦</div><div class="stat"><span class="stat-val bad">${ang}</span> 生气</div><div class="stat"><span class="stat-val">${remain}</span> 未记</div>`;
+}
+
+function renderAll(){renderStreakAndActions();renderPartnerRow();renderCalendar();}
+
+// ==================== EFFECTS ====================
+function celebrate(){const o=document.getElementById('celebrateOverlay'),em=['🎉','💕','✨','💖','🎊','🥰','💝','🌟','💗','💘','🌹'];for(let i=0;i<36;i++){const el=document.createElement('span');el.className='confetti';el.textContent=em[Math.floor(Math.random()*em.length)];el.style.left=Math.random()*100+'%';el.style.fontSize=(1+Math.random()*1.5)+'rem';el.style.animationDuration=(2+Math.random()*3)+'s';el.style.animationDelay=Math.random()*.5+'s';o.appendChild(el);el.addEventListener('animationend',()=>el.remove());}}
+function createFloatingHearts(){const bg=document.getElementById('heartsBg'),he=['💕','💖','💗','💝','💘','❤️'];function s(){const el=document.createElement('span');el.className='floating-heart';el.textContent=he[Math.floor(Math.random()*he.length)];el.style.left=Math.random()*96+'%';el.style.fontSize=(.7+Math.random()*1.5)+'rem';el.style.animationDuration=(8+Math.random()*14)+'s';bg.appendChild(el);el.addEventListener('animationend',()=>el.remove());}setInterval(s,1400);for(let i=0;i<5;i++)setTimeout(s,i*500);}
+const quotes=['爱是恒久忍耐，又有恩慈 💗','两个人在一起，就是最好的事 🌟','每一次忍耐，都是爱的证明 💝','愿我们永远不说再见 🥰','你是我的心跳，也是我的平静 💕','最好的爱情，是一起变得更好 ✨','不生气，因为舍不得让你难过 💖','我们的每一天，都值得珍惜 🌹','吵架是暂时的，爱是永远的 💘','和好之后，感情会更深 🤗',];
+function rotateQuote(){const el=document.getElementById('quote');el.style.opacity='0';setTimeout(()=>{el.textContent=quotes[Math.floor(Math.random()*quotes.length)];el.style.opacity='.65';},400);}
+
+// ==================== CALENDAR NAV ====================
+function navMonth(d){calMonth+=d;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function navToday(){const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();renderCalendar();}
+
+// ==================== INIT ====================
+async function init(){
+  createFloatingHearts();
+  const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();
+
+  const {data:{session}} = await supabase.auth.getSession();
+  if(session){
+    currentUser=session.user;
+    const {data:mp}=await supabase.from('profiles').select('*').eq('id',currentUser.id).maybeSingle();
+    if(!mp){const meta=currentUser.user_metadata||{};await supabase.from('profiles').insert({id:currentUser.id,nickname:meta.nickname||currentUser.email.split('@')[0],email:currentUser.email});}
+    await loadAllData();showAppPage();renderAll();checkSecurityQuestion();renderBindCard();
+  }else{showAuthPage();showLockout();}
+
+  supabase.auth.onAuthStateChange(async(ev,sess)=>{
+    if(sess){currentUser=sess.user;await loadAllData();showAppPage();renderAll();checkSecurityQuestion();renderBindCard();}else{currentUser=null;showAuthPage();showLockout();}
+  });
+
+  setInterval(rotateQuote,8000);rotateQuote();
+}
+init();
+</script>
+</body>
+</html>
