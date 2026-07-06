@@ -43,8 +43,8 @@ serve(async (req: Request) => {
       );
     }
 
-    // 验证密保答案
-    if (profile.security_answer_hash !== answer_hash) {
+    // 验证密保答案（不区分大小写和首尾空格）
+    if ((profile.security_answer_hash || '').trim().toLowerCase() !== (answer_hash || '').trim().toLowerCase()) {
       return new Response(
         JSON.stringify({ error: "密保答案错误" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
