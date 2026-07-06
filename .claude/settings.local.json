@@ -5,7 +5,8 @@
       "Bash(curl *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git -c http.sslVerify=false push origin main)"
+      "Bash(git -c http.sslVerify=false push origin main)",
+      "WebFetch(domain:cdn.jsdelivr.net)"
     ]
   }
 }
