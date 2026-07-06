@@ -117,3 +117,9 @@ create policy "Anyone can delete own images"
 -- 8. 创建索引（加速日期查询）
 create index if not exists idx_checkins_date on checkins(date);
 create index if not exists idx_checkins_user_date on checkins(user_id, date);
+
+-- 9. 安全问答字段（忘记密码用）
+alter table profiles add column if not exists security_question text default '';
+alter table profiles add column if not exists security_answer_hash text default '';
+alter table profiles add column if not exists failed_logins int default 0;
+alter table profiles add column if not exists last_failed_login timestamptz;
