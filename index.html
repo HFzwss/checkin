@@ -157,6 +157,7 @@ body{
 .bind-card .bind-form{margin-top:8px;display:flex;gap:8px}
 .bind-card input{flex:1;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--text);font-size:.82rem;font-family:inherit;outline:none}
 .bind-card input:focus{border-color:var(--pink-light)}
+.pair-code-display{font-size:1.4rem;font-weight:800;letter-spacing:4px;color:var(--pink-light);background:rgba(255,107,157,.1);border:1px dashed rgba(255,107,157,.3);border-radius:10px;padding:8px 16px;text-align:center;user-select:all}
 .partner-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .partner-badge{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);backdrop-filter:blur(14px);padding:12px;text-align:center;font-size:.85rem;box-shadow:var(--shadow)}
 .partner-badge .p-name{font-weight:600;color:#e0d0d8;margin-bottom:2px}
@@ -413,8 +414,17 @@ body{
   <div class="bind-card" id="bindCard" style="display:none;">
     <span>💔 还没有绑定伴侣</span>
     <div class="bind-form" id="bindForm">
-      <input type="email" id="bindEmail" placeholder="输入伴侣的注册邮箱">
-      <button class="sec-btn" onclick="bindPartner()">绑定</button>
+      <div style="width:100%;text-align:left;">
+        <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">你的配对码（发给对方）</div>
+        <div class="pair-code-display" id="myPairCode">---</div>
+      </div>
+      <div style="width:100%;margin-top:10px;text-align:left;">
+        <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">输入对方的配对码</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="bindCode" placeholder="6位配对码" maxlength="6" style="flex:1;text-transform:uppercase;letter-spacing:2px;text-align:center;">
+          <button class="sec-btn" onclick="bindPartner()">绑定</button>
+        </div>
+      </div>
     </div>
     <div class="bind-waiting" id="bindWaiting" style="display:none;">
       <span>⏳ 等待对方确认...</span>
@@ -813,7 +823,7 @@ async function loadAllData() {
   ]);
   allCheckins = checkins || [];
   allProfiles = {};
-  if (profiles) for(const p of profiles) allProfiles[p.id] = { nickname: p.nickname, email: p.email, partner_id: p.partner_id };
+  if (profiles) for(const p of profiles) allProfiles[p.id] = { nickname: p.nickname, email: p.email, partner_id: p.partner_id, pair_code: p.pair_code };
 
   // Ensure current user in profiles
   if (currentUser && !allProfiles[currentUser.id]) {
@@ -836,6 +846,34 @@ function isPartnerBound() { return !!getPartner(); }
 
 function getMyProfile() { return currentUser ? allProfiles[currentUser.id] : null; }
 
+function genPairCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function ensurePairCode() {
+  if (!currentUser) return;
+  const myP = getMyProfile();
+  if (myP && myP.pair_code) {
+    document.getElementById('myPairCode').textContent = myP.pair_code;
+    return myP.pair_code;
+  }
+  // Generate unique code
+  let code, attempts = 0;
+  while (attempts < 20) {
+    code = genPairCode();
+    const { data } = await supabase.from('profiles').select('id').eq('pair_code', code);
+    if (!data || data.length === 0) break;
+    attempts++;
+  }
+  await supabase.from('profiles').update({ pair_code: code }).eq('id', currentUser.id);
+  if (allProfiles[currentUser.id]) allProfiles[currentUser.id].pair_code = code;
+  document.getElementById('myPairCode').textContent = code;
+  return code;
+}
+
 function renderBindCard() {
   const card = document.getElementById('bindCard');
   const form = document.getElementById('bindForm');
@@ -848,16 +886,15 @@ function renderBindCard() {
   const partner = getPartner();
 
   if (partner) {
-    // Bound!
     card.style.display = 'none';
     return;
   }
 
   card.style.display = 'block';
+  ensurePairCode();
 
   // Check if I have a pending outgoing request
   if (myP && myP.partner_id) {
-    // I sent a request, waiting for partner
     form.style.display = 'none';
     waiting.style.display = 'block';
     incoming.style.display = 'none';
@@ -874,25 +911,25 @@ function renderBindCard() {
     waiting.style.display = 'none';
     incoming.style.display = 'block';
     document.getElementById('bindRequester').textContent = requester[1].nickname || requester[1].email;
-    // Store requester ID for accept
     incoming.dataset.requesterId = requester[0];
     return;
   }
 
-  // No requests, show connect form
-  form.style.display = 'flex';
+  // No requests, show connect form with pair codes
+  form.style.display = 'block';
   waiting.style.display = 'none';
   incoming.style.display = 'none';
+  document.getElementById('bindCode').value = '';
 }
 
 async function bindPartner() {
-  const email = document.getElementById('bindEmail').value.trim();
-  if (!email) { showToast('请输入伴侣的注册邮箱', true); return; }
+  const code = document.getElementById('bindCode').value.trim().toUpperCase();
+  if (!code || code.length !== 6) { showToast('请输入6位配对码', true); return; }
 
-  // Find the partner's profile by email
-  const { data: profiles } = await supabase.from('profiles').select('id').eq('email', email);
+  // Find partner by pair code
+  const { data: profiles } = await supabase.from('profiles').select('id').eq('pair_code', code);
   if (!profiles || profiles.length === 0) {
-    showToast('未找到该邮箱的注册用户，请确认对方已注册', true); return;
+    showToast('未找到该配对码，请确认对方已生成配对码', true); return;
   }
   const partnerId = profiles[0].id;
   if (partnerId === currentUser.id) { showToast('不能绑定自己哦~', true); return; }
